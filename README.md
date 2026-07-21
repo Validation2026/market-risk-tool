@@ -10,7 +10,7 @@ statik hesaplama aracı.
 - Her modülde açıklama, gerçek finansal formül, değişken sözlüğü ve canlı sonuç
 - Arama ve kategori filtresi
 - Mobil uyumlu beyaz tema
-- GitHub üzerinden Netlify yayınına hazır statik yapı
+- Statik web yayınına uygun sade dosya yapısı
 
 ## Yerel Kullanım
 

@@ -126,10 +126,10 @@ a {
 
 .hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.58fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   align-items: stretch;
-  padding: 72px 0 28px;
+  padding: 56px 0 28px;
 }
 
 .eyebrow {
@@ -184,126 +184,6 @@ a {
   color: var(--muted);
   font-size: 0.96rem;
   font-weight: 700;
-}
-
-.hero-card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 28px;
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(241, 247, 255, 0.86)),
-    radial-gradient(circle at top right, rgba(17, 181, 217, 0.28), transparent 22rem);
-  box-shadow: var(--shadow);
-  padding: 20px;
-  backdrop-filter: blur(20px);
-}
-
-.hero-card::before {
-  position: absolute;
-  inset: -40% -20% auto;
-  height: 70%;
-  background: conic-gradient(from 180deg, transparent, rgba(37, 99, 235, 0.16), transparent);
-  content: "";
-  animation: sweep 9s linear infinite;
-}
-
-.ticker-row,
-.orbit-card,
-.mini-results {
-  position: relative;
-  z-index: 1;
-}
-
-.ticker-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.ticker-row span {
-  border: 1px solid rgba(37, 99, 235, 0.14);
-  border-radius: 999px;
-  background: #fff;
-  padding: 8px 11px;
-  color: var(--blue);
-  font-size: 0.76rem;
-  font-weight: 850;
-}
-
-.orbit-card {
-  display: grid;
-  gap: 8px;
-  min-height: 210px;
-  margin-top: 40px;
-  border: 1px solid rgba(10, 31, 68, 0.1);
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 28px;
-  place-content: center;
-  text-align: center;
-}
-
-.orbit-card::after {
-  position: absolute;
-  inset: 18px;
-  border: 1px dashed rgba(37, 99, 235, 0.28);
-  border-radius: 22px;
-  content: "";
-  animation: softSpin 18s linear infinite;
-}
-
-.pulse-dot {
-  display: block;
-  width: 12px;
-  height: 12px;
-  margin: 0 auto 6px;
-  border-radius: 50%;
-  background: var(--green);
-  box-shadow: 0 0 0 12px rgba(22, 163, 74, 0.12);
-  animation: pulse 2.4s ease-in-out infinite;
-}
-
-.orbit-card p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.orbit-card strong {
-  color: var(--navy);
-  font-size: 1.5rem;
-  line-height: 1.2;
-}
-
-.mini-results {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.mini-results div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  border: 1px solid rgba(10, 31, 68, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.82);
-  padding: 14px 16px;
-}
-
-.mini-results span {
-  color: var(--muted);
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.mini-results strong {
-  color: var(--navy);
-  text-align: right;
 }
 
 .stat-strip {
@@ -717,24 +597,6 @@ a {
   }
 }
 
-@keyframes softSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 10px rgba(22, 163, 74, 0.12);
-  }
-  50% {
-    transform: scale(1.15);
-    box-shadow: 0 0 0 18px rgba(22, 163, 74, 0.04);
-  }
-}
-
 @media (max-width: 1100px) {
   .hero-grid,
   .workbench,
@@ -761,18 +623,36 @@ a {
 
   .topbar {
     width: 100%;
+    align-items: center;
+    border-radius: 18px;
   }
 
   .topbar-link {
     margin-left: auto;
+    white-space: nowrap;
   }
 
   .hero-grid {
-    padding-top: 42px;
+    padding: 30px 0 18px;
   }
 
   .hero-copy h1 {
-    font-size: 2.55rem;
+    font-size: 2.28rem;
+    line-height: 1.02;
+  }
+
+  .hero-lead {
+    margin-top: 18px;
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+
+  .hero-actions {
+    margin-top: 20px;
+  }
+
+  .primary-action {
+    width: 100%;
   }
 
   .stat-strip,
@@ -781,8 +661,7 @@ a {
   }
 
   .calculator-panel,
-  .module-browser,
-  .hero-card {
+  .module-browser {
     border-radius: 22px;
   }
 
@@ -804,6 +683,22 @@ a {
 
   .insight-card {
     display: grid;
+  }
+
+  .module-list {
+    display: flex;
+    max-height: none;
+    overflow-x: auto;
+    margin-right: -12px;
+    padding: 0 12px 6px 0;
+  }
+
+  .module-item {
+    flex: 0 0 220px;
+  }
+
+  .stat-strip div {
+    padding: 14px;
   }
 }
 

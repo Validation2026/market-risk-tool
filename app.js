@@ -236,35 +236,42 @@ const modules = [
   },
   {
     id: "continuous-compounding",
-    title: "Sürekli Faiz",
+    title: "Basit, Bileşik ve Sürekli Faiz",
     category: "Faiz ve Nakit Akışı",
-    description: "Faizin teorik olarak sonsuz frekansta yenilendiği sürekli bileşikleme varsayımıyla değerleme yapar.",
-    formula: ["FV = P x e^(r x t)", "PV = FV x e^(-r x t)"],
-    variables: variables("e:Doğal logaritma tabanı|r:Sürekli faiz oranı|t:Yıl cinsinden vade|P:Başlangıç tutarı"),
-    inputs: [input("principal", "Başlangıç tutarı", "100000", "TL"), input("rate", "Sürekli faiz", "35", "%"), input("time", "Vade", "1.5", "yıl")],
-    insight: "Sürekli faiz, türev ürün fiyatlamasında ve teorik modellemede sık kullanılan temiz bir varsayımdır.",
+    description: "Excel sayfasındaki gibi PV, FV ve gün sayısından basit, bileşik ve sürekli faiz oranlarını türetir.",
+    formula: ["T = gün / 360", "Basit = (FV / PV - 1) / T", "Bileşik = (FV / PV)^(1 / T) - 1", "Sürekli = -LN(PV / FV) / T"],
+    variables: variables("PV:Bugünkü değer|FV:Gelecek değer|T:Yıl cinsinden vade|LN:Doğal logaritma"),
+    inputs: [input("present", "PV", "99.32"), input("future", "FV", "100"), input("days", "Gün", "14", "gün")],
+    insight: "Bu modül faiz tipleri arasındaki dönüşümü gösterir; Excel IX sayfasındaki oran dönüşüm mantığıyla uyumludur.",
     calc: (v) => {
-      const p = cleanNumber(v.principal), r = rate(v.rate), t = cleanNumber(v.time);
-      return [result("Gelecek değer", money(p * Math.exp(r * t))), result("Sürekli iskonto faktörü", fmtNumber(Math.exp(-r * t), 6))];
+      const pv = cleanNumber(v.present), fv = cleanNumber(v.future), t = cleanNumber(v.days) / 360;
+      const ratio = pv === 0 ? 0 : fv / pv;
+      return [
+        result("Basit", pct(t === 0 ? 0 : (ratio - 1) / t)),
+        result("Bileşik", pct(t === 0 ? 0 : pow(ratio, 1 / t) - 1)),
+        result("Sürekli", pct(t === 0 || fv === 0 ? 0 : -Math.log(pv / fv) / t)),
+      ];
     },
   },
   {
     id: "zero-coupon-bond",
     title: "Kuponsuz Bono",
     category: "Bono ve Getiri Eğrisi",
-    description: "Kupon ödemesi olmayan bononun iskonto edilmiş fiyatını ve fiyat üzerinden yıllık getiriyi hesaplar.",
-    formula: ["P = F / (1 + y)^T", "y = (F / P)^(1 / T) - 1"],
-    variables: variables("P:Bono fiyatı|F:Vade sonu nominal değer|y:Yıllık getiri|T:Yıl cinsinden vade"),
-    inputs: [input("face", "Nominal değer", "100000", "TL"), input("yield", "Yıllık getiri", "38", "%"), input("maturity", "Vade", "2", "yıl"), input("marketPrice", "Piyasa fiyatı", "52600", "TL")],
-    insight: "Kuponsuz bonoda tüm getiri alış fiyatı ile vade sonu nominal değer arasındaki farktan gelir.",
+    description: "Excel sayfasındaki para piyasası iskonto yaklaşımıyla kuponsuz bononun PV değerini hesaplar.",
+    formula: ["VKGS = Vade Tarihi - Portföy Tarihi", "PV = Nominal / (1 + VKGS x r / 365)", "r = (Nominal / PV - 1) x 365 / VKGS"],
+    variables: variables("PV:Kuponsuz bono bugünkü değeri|VKGS:Vadeye kalan gün sayısı|r:Yıllık faiz oranı|Nominal:Vade sonunda ödenecek tutar"),
+    inputs: [input("face", "Nominal", "100", "TL"), input("days", "Vadeye kalan gün sayısı", "364", "gün"), input("yield", "Faiz oranı", "8.63", "%"), input("marketPrice", "Piyasa fiyatı", "92.06", "TL")],
+    insight: "Excel X sayfası bileşik vade yerine gün sayısı bazlı basit iskonto kullanır; bu modül aynı mantıkla çalışır.",
     calc: (v) => {
-      const f = cleanNumber(v.face), y = rate(v.yield), t = cleanNumber(v.maturity), market = cleanNumber(v.marketPrice);
-      return [result("Teorik fiyat", money(f / pow(1 + y, t))), result("Piyasa fiyatından getiri", pct(pow(f / market, 1 / t) - 1))];
+      const f = cleanNumber(v.face), days = cleanNumber(v.days), y = rate(v.yield), market = cleanNumber(v.marketPrice);
+      const price = f / (1 + days * (y / 365));
+      const implied = days === 0 || market === 0 ? 0 : (f / market - 1) * (365 / days);
+      return [result("PV", money(price)), result("Piyasa fiyatından faiz", pct(implied))];
     },
   },
   {
     id: "cash-flow",
-    title: "Nakit Akışı",
+    title: "Cash Flow",
     category: "Faiz ve Nakit Akışı",
     description: "Nakit akışı listesinin toplamını, iskonto edilmiş değerini ve ağırlıklı ortalama vadesini özetler.",
     formula: ["Toplam CF = Σ CF_t", "Ağırlıklı vade = Σ(t x CF_t) / Σ CF_t"],
@@ -311,17 +318,22 @@ const modules = [
   },
   {
     id: "forward-rate-contract",
-    title: "Forward Rate Kontrat",
+    title: "Forward Rate Sözleşmesi",
     category: "Türev ve Hedge",
-    description: "Taşıma maliyeti yaklaşımıyla teorik forward fiyatı ve kontrat değerini hesaplar.",
-    formula: ["F = S x e^((r_d - r_f) x T)", "V_long = (F - K) x e^(-r_d x T) x N"],
-    variables: variables("S:Spot fiyat veya kur|r_d:Yerli para faiz oranı|r_f:Yabancı para faiz oranı veya gelir oranı|K:Kontrat forward fiyatı"),
-    inputs: [input("spot", "Spot fiyat", "33.5"), input("domestic", "Yerli faiz", "42", "%"), input("foreign", "Yabancı faiz", "5", "%"), input("time", "Vade", "0.5", "yıl"), input("strike", "Kontrat fiyatı", "39"), input("notional", "Nominal", "1000000")],
-    insight: "Forward fiyatı spot fiyat ile iki para biriminin faiz farkı arasındaki taşıma ilişkisini gösterir.",
+    description: "Excel XIV sayfasındaki FRA mantığıyla sabit ödeme, değişken forward ödeme ve bugünkü kontrat değerini hesaplar.",
+    formula: ["f = ((1 + r2)^T2 / (1 + r1)^T1) - 1", "τ = T2 - T1", "P = N x (f - K) x τ x e^(-r_d x T2)"],
+    variables: variables("N:Nominal tutar|K:Sabit ödeme oranı|r1, r2:İlgili vadelerdeki spot/LIBOR oranları|τ:Sözleşme dönemi uzunluğu"),
+    inputs: [input("notional", "Nominal", "1000000", "TL"), input("fixed", "Sabit Ödeme", "8.5", "%"), input("r1", "r1", "8.434", "%"), input("t1", "T1", "1", "yıl"), input("r2", "r2", "8.8", "%"), input("t2", "T2", "2", "yıl"), input("discount", "r2 iskonto", "0", "%")],
+    insight: "Bu sürüm kur forwardı değil, Excel'deki forward rate sözleşmesi yani faiz forwardı mantığıyla çalışır.",
     calc: (v) => {
-      const s = cleanNumber(v.spot), rd = rate(v.domestic), rf = rate(v.foreign), t = cleanNumber(v.time), k = cleanNumber(v.strike), n = cleanNumber(v.notional);
-      const forward = s * Math.exp((rd - rf) * t);
-      return [result("Teorik forward", fmtNumber(forward, 4)), result("Long kontrat değeri", money((forward - k) * Math.exp(-rd * t) * n))];
+      const n = cleanNumber(v.notional), fixed = rate(v.fixed), r1 = rate(v.r1), r2 = rate(v.r2), t1 = cleanNumber(v.t1), t2 = cleanNumber(v.t2), discount = rate(v.discount);
+      const forward = pow(1 + r2, t2) / pow(1 + r1, t1) - 1;
+      const tau = t2 - t1;
+      return [
+        result("Değişken Ödeme", pct(forward)),
+        result("τ", fmtNumber(tau, 4)),
+        result("P", money(n * (forward - fixed) * tau * Math.exp(-discount * t2))),
+      ];
     },
   },
   {
@@ -358,20 +370,21 @@ const modules = [
     id: "corporate-zero",
     title: "Kuponsuz Şirket Bonosu",
     category: "Bono ve Getiri Eğrisi",
-    description: "Risksiz faiz üzerine kredi spreadi ekleyerek kuponsuz şirket bonosunun teorik fiyatını hesaplar.",
-    formula: ["P = F / (1 + r_f + s)^T", "Kredi primi = P_risksiz - P_riskli"],
-    variables: variables("r_f:Risksiz faiz oranı|s:Kredi spreadi|F:Vade sonu nominal değer|T:Vade"),
-    inputs: [input("face", "Nominal", "100000", "TL"), input("riskfree", "Risksiz faiz", "32", "%"), input("spread", "Kredi spreadi", "6", "%"), input("maturity", "Vade", "2", "yıl")],
-    insight: "Kredi spreadi yükseldikçe aynı nominal ödeme daha düşük bugünkü değere iner.",
+    description: "Excel XVII sayfasındaki gibi rating bazlı faiz farkını gün sayılı kuponsuz bono fiyatına yansıtır.",
+    formula: ["PV = Nominal / (1 + VKGS x r / 365)", "Spread Etkisi = PV_düşük_getiri / PV_yüksek_getiri - 1"],
+    variables: variables("PV:Bugünkü değer|VKGS:Vadeye kalan gün sayısı|r:Ratinge göre kullanılan yıllık faiz|Nominal:Vade sonu ödeme"),
+    inputs: [input("face", "Nominal", "100", "TL"), input("days", "Vadeye kalan gün sayısı", "365", "gün"), input("yieldA", "Industrial A Verim", "0.376", "%"), input("yieldBBB", "Industrial BBB- Verim", "1.022", "%")],
+    insight: "Bu modül bileşik yıllık iskonto yerine Excel'deki gün sayılı kuponsuz şirket bonosu formülünü kullanır.",
     calc: (v) => {
-      const face = cleanNumber(v.face), rf = rate(v.riskfree), s = rate(v.spread), t = cleanNumber(v.maturity);
-      const riskless = face / pow(1 + rf, t), risky = face / pow(1 + rf + s, t);
-      return [result("Riskli fiyat", money(risky)), result("Risksiz fiyat", money(riskless)), result("Kredi primi etkisi", money(riskless - risky))];
+      const face = cleanNumber(v.face), days = cleanNumber(v.days), yA = rate(v.yieldA), yBBB = rate(v.yieldBBB);
+      const priceA = face / (1 + days * (yA / 365));
+      const priceBBB = face / (1 + days * (yBBB / 365));
+      return [result("Industrial A PV", money(priceA)), result("Industrial BBB- PV", money(priceBBB)), result("Spread etkisi", pct(priceA / priceBBB - 1))];
     },
   },
   {
     id: "corporate-floating",
-    title: "Değişken Şirket Bonosu",
+    title: "Değişken Faizli Şirket Bonosu",
     category: "Bono ve Getiri Eğrisi",
     description: "Değişken faizli şirket bonosunda referans faiz, kredi spreadi ve iskonto marjını birlikte fiyatlar.",
     formula: ["Kupon = F x (L + s_kredi) x Δ", "P = Σ Kupon_t / (1 + (L + DM) x Δ)^t + F / (...)^n"],
@@ -447,7 +460,7 @@ const modules = [
   },
   {
     id: "modified-duration",
-    title: "Modifiye Durasyon",
+    title: "Modifiye Durasyon ve Bono Fiyatı",
     category: "Duyarlılık",
     description: "Faiz değişimine karşı tahvil fiyatının yaklaşık yüzde hassasiyetini hesaplar.",
     formula: ["D_Mod = D_Mac / (1 + y / m)", "ΔP / P ≈ -D_Mod x Δy"],
@@ -519,7 +532,7 @@ const modules = [
   },
   {
     id: "effective-duration-convexity",
-    title: "Efektif Durasyon Konveks",
+    title: "Efektif Durasyon ve Efektif Konveksite",
     category: "Duyarlılık",
     description: "Model fiyatlarından yukarı/aşağı faiz şoku ile efektif durasyon ve efektif konveksiteyi hesaplar.",
     formula: ["D_eff = (P_- - P_+) / (2 x P0 x Δy)", "C_eff = (P_- + P_+ - 2P0) / (P0 x Δy²)"],
@@ -549,7 +562,7 @@ const modules = [
   },
   {
     id: "parametric-var-position",
-    title: "Parametrik VaR Pozisyon",
+    title: "Parametrik VaR-Pozisyon",
     category: "VaR ve Simülasyon",
     description: "Tek pozisyon için volatilite, güven düzeyi ve elde tutma süresiyle parametrik VaR hesaplar.",
     formula: ["VaR = V x z_α x σ x √h"],
@@ -560,7 +573,7 @@ const modules = [
   },
   {
     id: "parametric-var-portfolio",
-    title: "Parametrik VaR Portföy",
+    title: "Parametrik VaR-Portföy",
     category: "VaR ve Simülasyon",
     description: "İki ana risk faktörlü portföyde volatilite ve korelasyonla parametrik VaR hesaplar.",
     formula: ["σ_p = √[(V1σ1)² + (V2σ2)² + 2ρV1σ1V2σ2]", "VaR = z_α x σ_p x √h"],
@@ -593,15 +606,23 @@ const modules = [
     id: "macro-hedge",
     title: "Makro Hedge",
     category: "Türev ve Hedge",
-    description: "Portföy düzeyindeki duyarlılığı hedge enstrümanı duyarlılığına bölerek gerekli hedge büyüklüğünü hesaplar.",
-    formula: ["Hedge adedi = (V_p x β_p) / (V_h x β_h)", "Kalan duyarlılık = V_pβ_p - adet x V_hβ_h"],
-    variables: variables("V_p:Korunacak portföy değeri|β_p:Portföy risk faktörü duyarlılığı|V_h:Bir hedge enstrümanının değeri|β_h:Hedge enstrümanı duyarlılığı"),
-    inputs: [input("portfolio", "Portföy değeri", "250000000", "TL"), input("portfolioBeta", "Portföy beta/delta", "0.85"), input("hedgeValue", "Hedge kontrat değeri", "10000000", "TL"), input("hedgeBeta", "Hedge beta/delta", "0.92")],
-    insight: "Makro hedge tek tek işlem yerine portföyün toplam duyarlılığını hedefler; operasyonel olarak daha yönetilebilir olabilir.",
+    description: "Excel XXXIII sayfasındaki gibi aktif/pasif tutarları, durasyonları ve faiz şoku üzerinden durasyon gap etkisini hesaplar.",
+    formula: ["Durasyon GAP = D_A - D_L x (L / A)", "Asset Etki = -A x D_A x Δr", "Liability Etki = -L x D_L x Δr", "Toplam = Asset Etki - Liability Etki"],
+    variables: variables("A:Asset tutarı|L:Liability tutarı|D_A:Asset durasyonu|D_L:Liability durasyonu|Δr:Faiz şoku"),
+    inputs: [input("asset", "Asset Tutar", "1000"), input("liability", "Liability Tutar", "900"), input("assetDuration", "Asset Durasyon", "3"), input("liabilityDuration", "Liability Durasyon", "0.5"), input("equity", "Özkaynak", "100"), input("shock", "Şok", "1", "%")],
+    insight: "Makro hedge burada hedge adedi değil, Excel'deki gibi bilanço düzeyinde durasyon uyumsuzluğu ve faiz şoku etkisini gösterir.",
     calc: (v) => {
-      const p = cleanNumber(v.portfolio), pb = cleanNumber(v.portfolioBeta), h = cleanNumber(v.hedgeValue), hb = cleanNumber(v.hedgeBeta);
-      const contracts = h * hb === 0 ? 0 : (p * pb) / (h * hb);
-      return [result("Gerekli hedge adedi", fmtNumber(contracts, 2)), result("Yuvarlanmış adet", fmtNumber(Math.round(contracts), 0)), result("Kalan duyarlılık", money(p * pb - Math.round(contracts) * h * hb))];
+      const asset = cleanNumber(v.asset), liability = cleanNumber(v.liability), assetDuration = cleanNumber(v.assetDuration), liabilityDuration = cleanNumber(v.liabilityDuration), equity = cleanNumber(v.equity), shock = rate(v.shock);
+      const gap = asset === 0 ? 0 : assetDuration - liabilityDuration * (liability / asset);
+      const assetImpact = -asset * assetDuration * shock;
+      const liabilityImpact = -liability * liabilityDuration * shock;
+      const total = assetImpact - liabilityImpact;
+      return [
+        result("Durasyon GAP", fmtNumber(gap, 4)),
+        result("Asset Etki", money(assetImpact)),
+        result("Liability Etki", money(liabilityImpact)),
+        result("Şok Sonrası Erime", pct(equity === 0 ? 0 : total / equity)),
+      ];
     },
   },
   {
@@ -621,7 +642,7 @@ const modules = [
   },
   {
     id: "echols-elliott",
-    title: "Echols Elliott Modeli",
+    title: "Echols-Elliot Modeli",
     category: "Bono ve Getiri Eğrisi",
     description: "Getiri eğrisini parametrik katsayılarla tahmin eden term structure yaklaşımını operasyonel hesaplayıcıya dönüştürür.",
     formula: ["ln(1 + r(T)) = b0 + b1T + b2T² + b3T³", "r(T) = e^[b0 + b1T + b2T² + b3T³] - 1"],
@@ -749,14 +770,6 @@ const renderResultsOnly = () => {
     card.innerHTML = `<span>${item.label}</span><strong>${item.value}</strong>`;
     resultWrap.appendChild(card);
   });
-
-  const hero = document.getElementById("hero-results");
-  hero.innerHTML = "";
-  results.slice(0, 2).forEach((item) => {
-    const row = document.createElement("div");
-    row.innerHTML = `<span>${item.label}</span><strong>${item.value}</strong>`;
-    hero.appendChild(row);
-  });
 };
 
 const renderFormula = (module) => {
@@ -783,7 +796,6 @@ const renderActive = () => {
   document.getElementById("active-category").textContent = module.category;
   document.getElementById("active-title").textContent = module.title;
   document.getElementById("active-description").textContent = module.description;
-  document.getElementById("hero-active-title").textContent = module.title;
   document.getElementById("module-count").textContent = `${modules.findIndex((item) => item.id === module.id) + 1}/${modules.length}`;
   document.getElementById("insight-text").textContent = module.insight;
   renderInputs(module, values);
