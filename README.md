@@ -1,12 +1,12 @@
 # Piyasa Riski Modüler Hesaplama Toolu
 
-Excel dosyasındaki 36 piyasa riski modülünü mobil uyumlu tek bir web
+Yüklenen çalışma kitabındaki 36 piyasa riski modülünü mobil uyumlu tek bir web
 uygulamasında toplayan hesaplama aracı.
 
 ## Kapsam
 
 - 36 ayrı finansal matematik ve piyasa riski modülü
-- Excel terimleriyle uyumlu başlıklar ve parametreler
+- Kaynak terimlerle uyumlu başlıklar ve parametreler
 - Formüller, değişken açıklamaları, canlı sonuçlar ve ara hesap tabloları
 - Arama, kategori filtresi ve mobil uyumlu arayüz
 

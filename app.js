@@ -282,11 +282,11 @@ const modules = [
     id: "continuous-compounding",
     title: "Basit, Bileşik ve Sürekli Faiz",
     category: "Faiz ve Nakit Akışı",
-    description: "Excel sayfasındaki gibi PV, FV ve gün sayısından basit, bileşik ve sürekli faiz oranlarını türetir.",
+    description: "Kaynak dosyadaki gibi PV, FV ve gün sayısından basit, bileşik ve sürekli faiz oranlarını türetir.",
     formula: ["T = gün / 360", "Basit = (FV / PV - 1) / T", "Bileşik = (FV / PV)^(1 / T) - 1", "Sürekli = -LN(PV / FV) / T"],
     variables: variables("PV:Bugünkü değer|FV:Gelecek değer|T:Yıl cinsinden vade|LN:Doğal logaritma"),
     inputs: [input("present", "PV", "99.32"), input("future", "FV", "100"), input("days", "Gün", "14", "gün")],
-    insight: "Bu modül faiz tipleri arasındaki dönüşümü gösterir; Excel IX sayfasındaki oran dönüşüm mantığıyla uyumludur.",
+    insight: "Bu modül faiz tipleri arasındaki dönüşümü gösterir; . modüldeki oran dönüşüm mantığıyla uyumludur.",
     calc: (v) => {
       const pv = cleanNumber(v.present), fv = cleanNumber(v.future), t = cleanNumber(v.days) / 360;
       const ratio = pv === 0 ? 0 : fv / pv;
@@ -301,11 +301,11 @@ const modules = [
     id: "zero-coupon-bond",
     title: "Kuponsuz Bono",
     category: "Bono ve Getiri Eğrisi",
-    description: "Excel sayfasındaki para piyasası iskonto yaklaşımıyla kuponsuz bononun PV değerini hesaplar.",
+    description: "Kaynak dosyadaki para piyasası iskonto yaklaşımıyla kuponsuz bononun PV değerini hesaplar.",
     formula: ["VKGS = Vade Tarihi - Portföy Tarihi", "PV = Nominal / (1 + VKGS x r / 365)", "r = (Nominal / PV - 1) x 365 / VKGS"],
     variables: variables("PV:Kuponsuz bono bugünkü değeri|VKGS:Vadeye kalan gün sayısı|r:Yıllık faiz oranı|Nominal:Vade sonunda ödenecek tutar"),
     inputs: [input("face", "Nominal", "100", "TL"), input("days", "Vadeye kalan gün sayısı", "364", "gün"), input("yield", "Faiz oranı", "8.63", "%"), input("marketPrice", "Piyasa fiyatı", "92.06", "TL")],
-    insight: "Excel X sayfası bileşik vade yerine gün sayısı bazlı basit iskonto kullanır; bu modül aynı mantıkla çalışır.",
+    insight: ". modül bileşik vade yerine gün sayısı bazlı basit iskonto kullanır; bu modül aynı mantıkla çalışır.",
     calc: (v) => {
       const f = cleanNumber(v.face), days = cleanNumber(v.days), y = rate(v.yield), market = cleanNumber(v.marketPrice);
       const price = f / (1 + days * (y / 365));
@@ -364,11 +364,11 @@ const modules = [
     id: "forward-rate-contract",
     title: "Forward Rate Sözleşmesi",
     category: "Türev ve Hedge",
-    description: "Excel XIV sayfasındaki FRA mantığıyla sabit ödeme, değişken forward ödeme ve bugünkü kontrat değerini hesaplar.",
+    description: "Bu modüldeki FRA mantığıyla sabit ödeme, değişken forward ödeme ve bugünkü kontrat değerini hesaplar.",
     formula: ["f = ((1 + r2)^T2 / (1 + r1)^T1) - 1", "τ = T2 - T1", "P = N x (f - K) x τ x e^(-r_d x T2)"],
     variables: variables("N:Nominal tutar|K:Sabit ödeme oranı|r1, r2:İlgili vadelerdeki spot/LIBOR oranları|τ:Sözleşme dönemi uzunluğu"),
     inputs: [input("notional", "Nominal", "1000000", "TL"), input("fixed", "Sabit Ödeme", "8.5", "%"), input("r1", "r1", "8.434", "%"), input("t1", "T1", "1", "yıl"), input("r2", "r2", "8.8", "%"), input("t2", "T2", "2", "yıl"), input("discount", "r2 iskonto", "0", "%")],
-    insight: "Bu sürüm kur forwardı değil, Excel'deki forward rate sözleşmesi yani faiz forwardı mantığıyla çalışır.",
+    insight: "Bu sürüm kur forwardı değil, kaynak modeldeki forward rate sözleşmesi yani faiz forwardı mantığıyla çalışır.",
     calc: (v) => {
       const n = cleanNumber(v.notional), fixed = rate(v.fixed), r1 = rate(v.r1), r2 = rate(v.r2), t1 = cleanNumber(v.t1), t2 = cleanNumber(v.t2), discount = rate(v.discount);
       const forward = pow(1 + r2, t2) / pow(1 + r1, t1) - 1;
@@ -414,11 +414,11 @@ const modules = [
     id: "corporate-zero",
     title: "Kuponsuz Şirket Bonosu",
     category: "Bono ve Getiri Eğrisi",
-    description: "Excel XVII sayfasındaki gibi rating bazlı faiz farkını gün sayılı kuponsuz bono fiyatına yansıtır.",
+    description: "Bu modüldeki gibi rating bazlı faiz farkını gün sayılı kuponsuz bono fiyatına yansıtır.",
     formula: ["PV = Nominal / (1 + VKGS x r / 365)", "Spread Etkisi = PV_düşük_getiri / PV_yüksek_getiri - 1"],
     variables: variables("PV:Bugünkü değer|VKGS:Vadeye kalan gün sayısı|r:Ratinge göre kullanılan yıllık faiz|Nominal:Vade sonu ödeme"),
     inputs: [input("face", "Nominal", "100", "TL"), input("days", "Vadeye kalan gün sayısı", "365", "gün"), input("yieldA", "Industrial A Verim", "0.376", "%"), input("yieldBBB", "Industrial BBB- Verim", "1.022", "%")],
-    insight: "Bu modül bileşik yıllık iskonto yerine Excel'deki gün sayılı kuponsuz şirket bonosu formülünü kullanır.",
+    insight: "Bu modül bileşik yıllık iskonto yerine kaynak modeldeki gün sayılı kuponsuz şirket bonosu formülünü kullanır.",
     calc: (v) => {
       const face = cleanNumber(v.face), days = cleanNumber(v.days), yA = rate(v.yieldA), yBBB = rate(v.yieldBBB);
       const priceA = face / (1 + days * (yA / 365));
@@ -650,11 +650,11 @@ const modules = [
     id: "macro-hedge",
     title: "Makro Hedge",
     category: "Türev ve Hedge",
-    description: "Excel XXXIII sayfasındaki gibi aktif/pasif tutarları, durasyonları ve faiz şoku üzerinden durasyon gap etkisini hesaplar.",
+    description: "Bu modüldeki gibi aktif/pasif tutarları, durasyonları ve faiz şoku üzerinden durasyon gap etkisini hesaplar.",
     formula: ["Durasyon GAP = D_A - D_L x (L / A)", "Asset Etki = -A x D_A x Δr", "Liability Etki = -L x D_L x Δr", "Toplam = Asset Etki - Liability Etki"],
     variables: variables("A:Asset tutarı|L:Liability tutarı|D_A:Asset durasyonu|D_L:Liability durasyonu|Δr:Faiz şoku"),
     inputs: [input("asset", "Asset Tutar", "1000"), input("liability", "Liability Tutar", "900"), input("assetDuration", "Asset Durasyon", "3"), input("liabilityDuration", "Liability Durasyon", "0.5"), input("equity", "Özkaynak", "100"), input("shock", "Şok", "1", "%")],
-    insight: "Makro hedge burada hedge adedi değil, Excel'deki gibi bilanço düzeyinde durasyon uyumsuzluğu ve faiz şoku etkisini gösterir.",
+    insight: "Makro hedge burada hedge adedi değil, kaynak modeldeki gibi bilanço düzeyinde durasyon uyumsuzluğu ve faiz şoku etkisini gösterir.",
     calc: (v) => {
       const asset = cleanNumber(v.asset), liability = cleanNumber(v.liability), assetDuration = cleanNumber(v.assetDuration), liabilityDuration = cleanNumber(v.liabilityDuration), equity = cleanNumber(v.equity), shock = rate(v.shock);
       const gap = asset === 0 ? 0 : assetDuration - liabilityDuration * (liability / asset);
@@ -759,63 +759,12 @@ const percentileInc = (items, percentile) => {
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
 };
 
-const escapeTexText = (value) =>
-  String(value)
-    .replace(/\\/g, "\\textbackslash{}")
-    .replace(/[{}_$%&#]/g, (match) => `\\${match}`);
-
-const formulaToLatex = (line) => {
-  const raw = String(line || "").trim();
-  const labelled = raw.match(/^([^=]+?):\s*(.+)$/);
-  const label = labelled ? `\\text{${escapeTexText(labelled[1])}:}\\quad ` : "";
-  let expression = labelled ? labelled[2] : raw;
-
-  expression = expression
-    .replace(/([A-Za-zÇĞİÖŞÜçğıöşü]+)_\(([^)]+)\)/g, "$1_{$2}")
-    .replace(/([A-Za-zÇĞİÖŞÜçğıöşü]+)_([A-Za-z0-9+\-]+)/g, "$1_{$2}")
-    .replace(/P_-/g, "P_{-}")
-    .replace(/P_\+/g, "P_{+}")
-    .replace(/P0/g, "P_0")
-    .replace(/Δ/g, "\\Delta ")
-    .replace(/Σ/g, "\\sum ")
-    .replace(/σ/g, "\\sigma ")
-    .replace(/α/g, "\\alpha ")
-    .replace(/τ/g, "\\tau ")
-    .replace(/√/g, "\\sqrt")
-    .replace(/×/g, "\\times")
-    .replace(/\s+x\s+/g, " \\times ")
-    .replace(/\*/g, "\\times ")
-    .replace(/EXP\(([^)]+)\)/gi, "e^{$1}")
-    .replace(/SQRT\(([^)]+)\)/gi, "\\sqrt{$1}")
-    .replace(/LN\(([^)]+)\)/gi, "\\ln($1)")
-    .replace(/POWER\(([^,]+),\s*([^)]+)\)/gi, "$1^{$2}")
-    .replace(/NORMINV\(([^)]+)\)/gi, "\\operatorname{NORMINV}($1)")
-    .replace(/PERCENTILE\(([^)]+)\)/gi, "\\operatorname{PERCENTILE}($1)")
-    .replace(/ROUNDUP\(([^)]+)\)/gi, "\\operatorname{ROUNDUP}($1)")
-    .replace(/LinearInterpolator/gi, "\\operatorname{LinearInterpolator}")
-    .replace(/FORECAST/gi, "\\operatorname{FORECAST}")
-    .replace(/SUMPRODUCT/gi, "\\operatorname{SUMPRODUCT}")
-    .replace(/SUM\(/gi, "\\operatorname{SUM}(")
-    .replace(/ABS\(/gi, "\\operatorname{ABS}(")
-    .replace(/IF\(/gi, "\\operatorname{IF}(")
-    .replace(/PMT\(/gi, "\\operatorname{PMT}(")
-    .replace(/COVAR\(/gi, "\\operatorname{COVAR}(")
-    .replace(/VAR\(/gi, "\\operatorname{VAR}(")
-    .replace(/STDEV\(/gi, "\\operatorname{STDEV}(")
-    .replace(/R²/g, "R^2")
-    .replace(/²/g, "^2")
-    .replace(/³/g, "^3")
-    .replace(/%/g, "\\%");
-
-  return `\\displaystyle ${label}${expression}`;
-};
-
 const isoDate = (date) => date.toISOString().slice(0, 10);
 const dateUtc = (year, month, day) => new Date(Date.UTC(year, month - 1, day));
 const addMonths = (date, months) => dateUtc(date.getUTCFullYear(), date.getUTCMonth() + months + 1, date.getUTCDate());
 const daysBetween = (future, start) => Math.round((future.getTime() - start.getTime()) / 86400000);
 
-const excelLoanCurve = {
+const loanCurve = {
   days: [90, 180, 360, 720, 1080, 1440, 1800, 2520, 2880, 3240, 3600],
   rates: [0.094124, 0.094524, 0.095739, 0.097314, 0.098224, 0.098781, 0.098911, 0.099571, 0.100181, 0.100921, 0.101821],
 };
@@ -830,7 +779,7 @@ const interpolationCurve = {
   yields: [1, 2.5, 3.2, 4, 4, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5],
 };
 
-const excelBondMetrics = (face, couponRate, yieldRate, maturity, frequency) => {
+const bondMetrics = (face, couponRate, yieldRate, maturity, frequency) => {
   const periods = Math.max(1, Math.round(maturity * frequency));
   const discount = 1 + yieldRate / frequency;
   const coupon = (face * couponRate) / frequency;
@@ -868,7 +817,7 @@ const levelLoanSchedule = (values) => {
     const interest = balance * annual / 12;
     const principal = installment - interest;
     balance = Math.max(0, balance - principal);
-    const curveRate = linearInterpolate(days, excelLoanCurve.days, excelLoanCurve.rates);
+    const curveRate = linearInterpolate(days, loanCurve.days, loanCurve.rates);
     const df = 1 / pow(1 + curveRate, year);
     const pv = installment * df;
     return {
@@ -943,7 +892,7 @@ const moduleOverrides = {};
 Object.assign(moduleOverrides, {
   "simple-compound-interest": {
     title: "Basit Faiz & Bileşik Faiz",
-    description: "Excel I sayfasındaki nominal, T ve r girişleriyle basit ve bileşik FV hesaplar.",
+    description: "Bu modüldeki nominal, T ve r girişleriyle basit ve bileşik FV hesaplar.",
     formula: ["Basit FV = Nominal x (1 + T x r)", "Bileşik FV = Nominal x (1 + r)^T", "Karşılaştırma tablosu = 100 x (1 + T x r) ve 100 x (1 + r)^T"],
     variables: variables("Nominal:Başlangıç tutarı|T:Vade veya periyot sayısı|r:Dönemsel faiz oranı|FV:Vade sonu değer"),
     inputs: [
@@ -976,7 +925,7 @@ Object.assign(moduleOverrides, {
           fmtNumber(100 * pow(1 + rates[2], p), 4),
         ];
       });
-      return table("Excel I karşılaştırma tablosu", "Baz değer 100", [
+      return table("Karşılaştırma tablosu", "Baz değer 100", [
         "Periyot",
         `${plainPct(rates[0], 2)} Basit`,
         `${plainPct(rates[0], 2)} Bileşik`,
@@ -988,7 +937,7 @@ Object.assign(moduleOverrides, {
     },
   },
   "compounding-frequency": {
-    description: "Excel II sayfasındaki yıllık, 6 aylık, 3 aylık ve sürekli yenileme sonuçlarını üretir.",
+    description: "Bu modüldeki yıllık, 6 aylık, 3 aylık ve sürekli yenileme sonuçlarını üretir.",
     formula: ["FV_m = Nominal x (1 + r / m)^(m x T)", "FV_sürekli = Nominal x e^(r x T)"],
     variables: variables("Nominal:Başlangıç tutarı|T:Yıl cinsinden süre|r:Nominal yıllık faiz|m:Yıllık yenileme frekansı"),
     inputs: [
@@ -1016,7 +965,7 @@ Object.assign(moduleOverrides, {
       const r = rate(v.rate);
       const frequencies = [...Array.from({ length: 24 }, (_, index) => index + 1), 36, 52, 72];
       const rows = frequencies.map((m) => [m, money(principal * pow(1 + r / m, m * t)), money(principal * Math.exp(r * t))]);
-      return table("Excel II yenileme frekansı", "Sürekli faiz limitiyle karşılaştırma", ["Yenileme Frekansı", "FV", "FV Sürekli"], rows);
+      return table("Yenileme frekansı", "Sürekli faiz limitiyle karşılaştırma", ["Yenileme Frekansı", "FV", "FV Sürekli"], rows);
     },
   },
   "present-value": {
@@ -1032,11 +981,11 @@ Object.assign(moduleOverrides, {
         const period = index + 1;
         return [period, money(fv), pct(r), fmtNumber(pow(1 + r, period), 6), money(fv / pow(1 + r, period))];
       });
-      return table("Excel III bugünkü değer tablosu", "PV = FV / (1 + r)^T", ["T", "FV", "r", "Bileşik çarpan", "PV"], rows);
+      return table("Bugünkü değer tablosu", "PV = FV / (1 + r)^T", ["T", "FV", "r", "Bileşik çarpan", "PV"], rows);
     },
   },
   "multi-cash-flow": {
-    description: "Excel IV sayfasındaki gibi eşit c ödemesini her dönem iskonto eder ve toplam PV üretir.",
+    description: "Bu modüldeki gibi eşit c ödemesini her dönem iskonto eder ve toplam PV üretir.",
     formula: ["PV_t = c / (1 + r)^t", "Toplam PV = Σ PV_t"],
     variables: variables("c:Her dönem ödeme|T:Toplam dönem sayısı|r:Dönemsel iskonto oranı|PV_t:t dönemindeki bugünkü değer"),
     inputs: [input("cash", "c", "4000", "TL"), input("periods", "T", "3"), input("rate", "r", "10", "%")],
@@ -1055,11 +1004,11 @@ Object.assign(moduleOverrides, {
         const period = index + 1;
         return [period, money(c), fmtNumber(1 / pow(1 + r, period), 6), money(c / pow(1 + r, period))];
       });
-      return table("Excel IV nakit akışı", "Eşit c ödemeleri", ["Periyot", "Ödeme", "DF", "PV"], rows);
+      return table("Nakit akışı", "Eşit c ödemeleri", ["Periyot", "Ödeme", "DF", "PV"], rows);
     },
   },
   annuity: {
-    description: "Excel V sayfasındaki annuite kapalı formuyla eşit ödeme serisinin PV değerini hesaplar.",
+    description: "Bu modüldeki annuite kapalı formuyla eşit ödeme serisinin PV değerini hesaplar.",
     formula: ["PV = (c / r) x (1 - 1 / (1 + r)^T)"],
     variables: variables("c:Dönemsel ödeme|T:Dönem sayısı|r:Dönemsel iskonto oranı|PV:Annuite bugünkü değeri"),
     inputs: [input("payment", "c", "4000", "TL"), input("periods", "T", "3"), input("rate", "r", "10", "%")],
@@ -1071,12 +1020,12 @@ Object.assign(moduleOverrides, {
     },
     detail: (v) => ({
       ...moduleOverrides["multi-cash-flow"].detail({ cash: v.payment, periods: v.periods, rate: v.rate }),
-      title: "Excel V annuite nakit akışı",
+      title: "Annuite nakit akışı",
       note: "Kapalı form PV ile dönem PV toplamı aynı değeri verir",
     }),
   },
   perpetuity: {
-    description: "Excel VI sayfasındaki sabit perpetuity formülüyle sonsuz ödeme serisinin PV değerini hesaplar.",
+    description: "Bu modüldeki sabit perpetuity formülüyle sonsuz ödeme serisinin PV değerini hesaplar.",
     formula: ["PV = c / r"],
     variables: variables("c:Sonsuz devam eden dönemsel ödeme|r:Dönemsel iskonto oranı|PV:Perpetuity bugünkü değeri"),
     inputs: [input("cash", "c", "4"), input("rate", "r", "8.33", "%")],
@@ -1084,11 +1033,11 @@ Object.assign(moduleOverrides, {
     detail: (v) => {
       const c = cleanNumber(v.cash);
       const r = rate(v.rate);
-      return table("Excel VI perpetuity", "Sabit sonsuz nakit akışı", ["Kalem", "Değer"], [["c", fmtNumber(c, 6)], ["r", pct(r)], ["PV = c / r", fmtNumber(r === 0 ? 0 : c / r, 6)]]);
+      return table("Perpetuity", "Sabit sonsuz nakit akışı", ["Kalem", "Değer"], [["c", fmtNumber(c, 6)], ["r", pct(r)], ["PV = c / r", fmtNumber(r === 0 ? 0 : c / r, 6)]]);
     },
   },
   amortization: {
-    description: "Excel VII sayfasındaki konut kredisi taksit formülüyle aylık ödeme c değerini hesaplar.",
+    description: "Bu modüldeki konut kredisi taksit formülüyle aylık ödeme c değerini hesaplar.",
     formula: ["c = (Kredi Tutarı x r Aylık) / (1 - 1 / (1 + r Aylık)^n)"],
     variables: variables("Ev Değeri:Teminat veya konut değeri|Kredi Tutarı:Finanse edilen anapara|r Aylık:Aylık faiz oranı|n:Toplam ay sayısı|c:Aylık eşit ödeme"),
     inputs: [
@@ -1116,11 +1065,11 @@ Object.assign(moduleOverrides, {
         balance = Math.max(0, balance - principal);
         return [index + 1, money(payment), money(interest), money(principal), money(balance)];
       });
-      return table("Excel VII amortizasyon örneği", n > 24 ? "İlk 24 ay gösterilir" : "Tüm aylar gösterilir", ["Ay", "c", "Faiz", "Anapara", "Kalan"], rows);
+      return table("Amortizasyon örneği", n > 24 ? "İlk 24 ay gösterilir" : "Tüm aylar gösterilir", ["Ay", "c", "Faiz", "Anapara", "Kalan"], rows);
     },
   },
   "level-payment-loan": {
-    description: "Excel VIII sayfasındaki PMT, anapara/faiz kırılımı, interpolasyonlu faiz ve iskonto faktörüyle eşit taksitli kredi fiyatlar.",
+    description: "Bu modüldeki PMT, anapara/faiz kırılımı, interpolasyonlu faiz ve iskonto faktörüyle eşit taksitli kredi fiyatlar.",
     formula: ["Nominal = PMT(Faiz Oranı / 12, Taksit Sayısı, -Bakiye)", "Faiz_t = Kalan Anapara_(t-1) x Faiz Oranı / 12", "Faiz eğrisi = LinearInterpolator(TRL.GOV, VKGS)", "PV_t = Nominal_t x DiscountFactor_t"],
     variables: variables("Bakiye:Başlangıç kredi bakiyesi|Faiz Oranı:Yıllık kredi faizi|Taksit Sayısı:Aylık ödeme sayısı|VKGS:Portföy tarihinden ödeme tarihine gün|DiscountFactor:1 / (1 + eğri faizi)^VKGS yıl"),
     inputs: [
@@ -1152,7 +1101,7 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      return table("Excel VIII kredi ödeme planı", "PMT + LinearInterpolator + DF", ["#", "Tarih", "VKGS", "VKGS Yıl", "Nominal", "Anapara", "Faiz", "Kalan Anapara", "Faiz", "DiscountFactor", "PV"], rows);
+      return table("Kredi ödeme planı", "PMT + LinearInterpolator + DF", ["#", "Tarih", "VKGS", "VKGS Yıl", "Nominal", "Anapara", "Faiz", "Kalan Anapara", "Faiz", "DiscountFactor", "PV"], rows);
     },
   },
 });
@@ -1166,7 +1115,7 @@ Object.assign(moduleOverrides, {
       const simple = t === 0 ? 0 : (fv / pv - 1) / t;
       const compound = t === 0 ? 0 : pow(fv / pv, 1 / t) - 1;
       const continuous = t === 0 || fv === 0 ? 0 : -Math.log(pv / fv) / t;
-      return table("Excel IX faiz dönüşümü", "Basit, bileşik ve sürekli oranlar", ["Kalem", "Formül", "Sonuç"], [
+      return table("Faiz dönüşümü", "Basit, bileşik ve sürekli oranlar", ["Kalem", "Formül", "Sonuç"], [
         ["T", "gün / 360", fmtNumber(t, 8)],
         ["Basit", "(FV / PV - 1) / T", pct(simple)],
         ["Bileşik", "(FV / PV)^(1 / T) - 1", pct(compound)],
@@ -1191,7 +1140,7 @@ Object.assign(moduleOverrides, {
       const days = cleanNumber(v.days);
       const yieldRate = rate(v.yield);
       const denominator = 1 + days * (yieldRate / 365);
-      return table("Excel X kuponsuz bono", "Para piyasası tipi gün sayılı iskonto", ["Kalem", "Değer"], [
+      return table("Kuponsuz bono", "Para piyasası tipi gün sayılı iskonto", ["Kalem", "Değer"], [
         ["Nominal", money(face)],
         ["Vadeye Kalan Gün Sayısı", fmtNumber(days, 0)],
         ["Beklenen Getiri", pct(yieldRate)],
@@ -1201,7 +1150,7 @@ Object.assign(moduleOverrides, {
     },
   },
   "cash-flow": {
-    description: "Excel XI sayfasındaki kuponlu bono nakit akışı örneğini dönem, tutar, DF ve PV kolonlarıyla gösterir.",
+    description: "Bu modüldeki kuponlu bono nakit akışı örneğini dönem, tutar, DF ve PV kolonlarıyla gösterir.",
     formula: ["Kupon = Anapara x Kupon Oranı / 2", "DF_t = 1 / (1 + Beklenen Getiri / 2)^t", "PV = Σ Tutar_t x DF_t"],
     variables: variables("Anapara:Vade sonunda geri ödenecek nominal|Kupon Oranı:Yıllık kupon oranı|Kupon:Yarı yıllık kupon tutarı|DF:İskonto faktörü|PV:Bugünkü değer"),
     inputs: [
@@ -1233,11 +1182,11 @@ Object.assign(moduleOverrides, {
         const df = 1 / pow(1 + y / 2, period);
         return [period, money(amount), fmtNumber(df, 6), money(amount * df)];
       });
-      return table("Excel XI Cash Flow", "Yarı yıllık kupon akışı", ["Dönem", "Tutar", "DF", "PV"], rows);
+      return table("Cash Flow", "Yarı yıllık kupon akışı", ["Dönem", "Tutar", "DF", "PV"], rows);
     },
   },
   "coupon-bond": {
-    description: "Excel XII sayfasındaki kupon tarihleri, VKGS, verim eğrisi interpolasyonu, DF ve PV kolonlarıyla kuponlu bono fiyatlar.",
+    description: "Bu modüldeki kupon tarihleri, VKGS, verim eğrisi interpolasyonu, DF ve PV kolonlarıyla kuponlu bono fiyatlar.",
     formula: ["Dönemlik Kupon = Nominal x Kupon Oranı / 2", "Faiz Oranı = LinearInterpolator(Verim Eğrisi, VKGS)", "DF = 1 / (1 + Faiz Oranı)^(VKGS / DCB)", "Kirli Fiyat = Σ PV; Temiz Fiyat = Kirli Fiyat - TF"],
     variables: variables("VKGS:Vadeye kalan gün sayısı|DCB:Day count basis|TF:İşlemiş faiz düzeltmesi|DF:İskonto faktörü"),
     inputs: [
@@ -1270,7 +1219,7 @@ Object.assign(moduleOverrides, {
         const df = 1 / pow(1 + curveRate, day / dcb);
         return [index + 1, day, fmtNumber(day / dcb, 6), money(amount), pct(curveRate), fmtNumber(df, 6), money(amount * df)];
       });
-      return table("Excel XII bono fiyatı", "Verim eğrisi LinearInterpolator ile okunur", ["Kupon Dönemi", "VKGS", "VKGS Yıl", "Tutar", "Faiz Oranı", "DF", "PV"], rows);
+      return table("Bono fiyatı", "Verim eğrisi LinearInterpolator ile okunur", ["Kupon Dönemi", "VKGS", "VKGS Yıl", "Tutar", "Faiz Oranı", "DF", "PV"], rows);
     },
   },
   "forward-rate": {
@@ -1290,7 +1239,7 @@ Object.assign(moduleOverrides, {
       });
       const f11 = rateForward(rate(v.spot1), cleanNumber(v.t1), rate(v.spot2), cleanNumber(v.t2), cleanNumber(v.t2) - cleanNumber(v.t1));
       rows.unshift(["f1,1", `${pct(rate(v.spot1))} -> ${pct(rate(v.spot2))}`, pct(f11)]);
-      return table("Excel XIII forward curve", "TRL GOV spot verim eğrisi", ["Tenor", "Spot Verim Eğrisi", "Forward Verim Eğrisi"], rows);
+      return table("Forward curve", "TRL GOV spot verim eğrisi", ["Tenor", "Spot Verim Eğrisi", "Forward Verim Eğrisi"], rows);
     },
   },
   "forward-rate-contract": {
@@ -1311,7 +1260,7 @@ Object.assign(moduleOverrides, {
       const forward = pow(1 + r2, t2) / pow(1 + r1, t1) - 1;
       const tau = t2 - t1;
       const p = cleanNumber(v.notional) * (forward - rate(v.fixed)) * tau * Math.exp(-rate(v.discount) * t2);
-      return table("Excel XIV forward rate sözleşmesi", "Sabit ve değişken ödeme farkı", ["Kalem", "Değer"], [
+      return table("Forward rate sözleşmesi", "Sabit ve değişken ödeme farkı", ["Kalem", "Değer"], [
         ["Sabit Ödeme", pct(rate(v.fixed))],
         ["Değişken Ödeme", pct(forward)],
         ["τ", fmtNumber(tau, 6)],
@@ -1320,7 +1269,7 @@ Object.assign(moduleOverrides, {
     },
   },
   "floating-rate-note": {
-    description: "Excel XV sayfasındaki değişken faizli bonoda forward m,n, spread, zero r, DF ve PV kolonlarını üretir.",
+    description: "Bu modüldeki değişken faizli bonoda forward m,n, spread, zero r, DF ve PV kolonlarını üretir.",
     formula: ["Forward m,n = (((1 + yn+m)^(n+m)) / ((1 + ym)^m))^(1/n) - 1", "Faiz = Nominal x ((Forward m,n + Spread) / 4)", "DF = 1 / (1 + zero r)^m", "PV = (Faiz + Nominal) x DF"],
     variables: variables("m:Değerleme tarihinden kupon tarihine yıl|n:Kupon dönemi uzunluğu|ym:m vadesindeki eğri faizi|yn+m:n+m vadesindeki eğri faizi|zero r:İskonto eğrisi oranı"),
     inputs: [
@@ -1360,11 +1309,11 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      return table("Excel XV değişken faizli bono", "Forward m,n + spread ile kupon tahmini", ["#", "VKGS", "m", "n", "n+m", "ym", "yn+m", "Forward m,n", "Faiz", "Nominal", "zero r", "DF", "PV"], rows);
+      return table("Değişken faizli bono", "Forward m,n + spread ile kupon tahmini", ["#", "VKGS", "m", "n", "n+m", "ym", "yn+m", "Forward m,n", "Faiz", "Nominal", "zero r", "DF", "PV"], rows);
     },
   },
   spread: {
-    description: "Excel XVI sayfasındaki Spread, G-Spread, I-Spread ve Z-Spread kavramlarını aynı terminolojiyle özetler.",
+    description: "Bu modüldeki Spread, G-Spread, I-Spread ve Z-Spread kavramlarını aynı terminolojiyle özetler.",
     formula: ["Spread = (Riskli Verim - ABD 10Y Gösterge) x 10000", "G-Spread = Riskli Verim - hazine interpolasyonu", "I-Spread = Riskli Verim - swap eğrisi interpolasyonu", "Z-Spread = fiyatı eşitleyen sabit iskonto spreadi"],
     inputs: [
       input("treasuryYield", "Hazine EBond Verim", "5.025413", "%"),
@@ -1382,7 +1331,7 @@ Object.assign(moduleOverrides, {
         result("Z-Spread", `${fmtNumber(cleanNumber(v.zSpread), 4)} bp`),
       ];
     },
-    detail: (v) => table("Excel XVI spread özeti", "US900123CA66 örneği", ["Enstrüman", "Verim", "Benchmark", "Spread"], [
+    detail: (v) => table("Spread özeti", "US900123CA66 örneği", ["Enstrüman", "Verim", "Benchmark", "Spread"], [
       ["Hazine EBond", pct(rate(v.treasuryYield)), pct(rate(v.benchmarkYield)), bp(rate(v.treasuryYield) - rate(v.benchmarkYield))],
       ["Arçelik EBond", pct(rate(v.corporateYield)), pct(rate(v.benchmarkYield)), bp(rate(v.corporateYield) - rate(v.benchmarkYield))],
       ["Z-Spread", "-", "-", `${fmtNumber(cleanNumber(v.zSpread), 4)} bp`],
@@ -1400,11 +1349,11 @@ Object.assign(moduleOverrides, {
         const priceBBB = face / (1 + days * (yBBB / 365));
         return [label, days, pct(yA), money(priceA), pct(yBBB), money(priceBBB), pct(priceA / priceBBB - 1)];
       });
-      return table("Excel XVII rating farkı", "Industrial A / Industrial BBB-", ["Vade", "VKGS", "A Verim", "A PV", "BBB- Verim", "BBB- PV", "Spread Etkisi"], rows);
+      return table("Rating farkı", "Industrial A / Industrial BBB-", ["Vade", "VKGS", "A Verim", "A PV", "BBB- Verim", "BBB- PV", "Spread Etkisi"], rows);
     },
   },
   "corporate-floating": {
-    description: "Excel XVIII sayfasındaki Değişken Faizli Şirket Bonosu modelinde 2Y IECM + spread, z discount margin ve aylık kupon akışıyla fiyat hesaplar.",
+    description: "Bu modüldeki Değişken Faizli Şirket Bonosu modelinde 2Y IECM + spread, z discount margin ve aylık kupon akışıyla fiyat hesaplar.",
     formula: ["Forward m,n = (((1 + yn+m)^(n+m)) / ((1 + ym)^m))^(1/n) - 1", "DF = 1 / (1 + zero r + z)^m", "PV = Σ (Faiz + Nominal) x DF", "CP = PV - TF"],
     variables: variables("z:Discount Margin|m:Değerleme tarihinden kupon tarihine yıl|n:Referans vade|TF:Tahakkuk faizi|CP:Clean price"),
     inputs: [
@@ -1441,14 +1390,14 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      return table("Excel XVIII şirket FRN", "z discount margin dahil", ["#", "VKGS", "m", "n", "Forward m,n", "Faiz", "Nominal", "zero r + z", "DF", "PV"], rows);
+      return table("Şirket FRN", "z discount margin dahil", ["#", "VKGS", "m", "n", "Forward m,n", "Faiz", "Nominal", "zero r + z", "DF", "PV"], rows);
     },
   },
 });
 
 Object.assign(moduleOverrides, {
   swap: {
-    description: "Excel XIX sayfasındaki sabit ödeme alıcısı ve değişken ödeme bacaklarını ayrı ayrı iskonto eder.",
+    description: "Bu modüldeki sabit ödeme alıcısı ve değişken ödeme bacaklarını ayrı ayrı iskonto eder.",
     formula: ["Fiyat = PV_Sabit Bacak - PV_Değişken Bacak", "Sabit ödeme = Nominal x Kupon x τ", "Forward Rate = (1 - DF_t / DF_t-1) / ((DF_t / DF_t-1) x τ)", "PV = Ödeme x İskonto Faktörü"],
     variables: variables("τ:İki ödeme tarihi arasındaki yıl fraksiyonu|DF:İskonto faktörü|Forward Rate:Değişken bacak kupon oranı|PV:Bacak nakit akışının bugünkü değeri"),
     inputs: [input("notional", "Nominal", "10000000", "TL"), input("fixed", "Kupon", "8.540364", "%")],
@@ -1486,7 +1435,7 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      return table("Excel XIX swap bacakları", "Sabit ödeme alıcısı / değişken ödeme", ["Bacak", "#", "VKGS", "VKGS Yıl", "τ", "Faiz Oranı", "Forward Rate", "Ödeme", "İskonto Faktörü", "PV"], [...fixed, ...floating]);
+      return table("Swap bacakları", "Sabit ödeme alıcısı / değişken ödeme", ["Bacak", "#", "VKGS", "VKGS Yıl", "τ", "Faiz Oranı", "Forward Rate", "Ödeme", "İskonto Faktörü", "PV"], [...fixed, ...floating]);
     },
   },
   "linear-interpolation": {
@@ -1501,7 +1450,7 @@ Object.assign(moduleOverrides, {
       const left = interpolationCurve.days[index] <= x ? index : Math.max(0, index - 1);
       const right = Math.min(interpolationCurve.days.length - 1, left + 1);
       const y = linearInterpolate(x, interpolationCurve.days, interpolationCurve.yields);
-      return table("Excel XX lineer interpolasyon", "FORECAST/INDEX yaklaşımıyla aynı doğrusal oran", ["Nokta", "Gün", "Faiz"], [
+      return table("Lineer interpolasyon", "FORECAST/INDEX yaklaşımıyla aynı doğrusal oran", ["Nokta", "Gün", "Faiz"], [
         ["Alt nokta", interpolationCurve.days[left], `${fmtNumber(interpolationCurve.yields[left], 6)}%`],
         ["Aranan gün", x, `${fmtNumber(y, 6)}%`],
         ["Üst nokta", interpolationCurve.days[right], `${fmtNumber(interpolationCurve.yields[right], 6)}%`],
@@ -1543,7 +1492,7 @@ Object.assign(moduleOverrides, {
       const d2 = d1 - denom;
       const payerConstant = f * normCdf(d1) - k * normCdf(d2);
       const receiverConstant = k * normCdf(-d2) - f * normCdf(-d1);
-      return table("Excel XXI Black-76 swaption", "Forward swap rate üzerinden payer/receiver", ["Kalem", "Değer"], [
+      return table("Black-76 swaption", "Forward swap rate üzerinden payer/receiver", ["Kalem", "Değer"], [
         ["Forward Swap Rate", pct(f)],
         ["Swaption Rate", pct(k)],
         ["YTM", fmtNumber(t, 8)],
@@ -1559,28 +1508,28 @@ Object.assign(moduleOverrides, {
   "macaulay-duration": {
     inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "6", "%"), input("maturity", "Vade", "5", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "6", "%")],
     calc: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
       return [result("Macaulay D", `${fmtNumber(metrics.macaulay, 6)} yıl`), result("Fiyat", money(metrics.price))];
     },
     detail: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
       const rows = metrics.rows.map((row) => [row.period, money(row.cashFlow), money(row.pv), fmtNumber(row.weighted, 6)]);
       rows.push(["Toplam", "", money(metrics.price), fmtNumber(metrics.weighted, 6)]);
-      return table("Excel XXII Macaulay Durasyonu", "PV x t ağırlıklı vade", ["Periyot", "Kupon", "PV", "PV x t"], rows);
+      return table("Macaulay Durasyonu", "PV x t ağırlıklı vade", ["Periyot", "Kupon", "PV", "PV x t"], rows);
     },
   },
   "modified-duration": {
-    description: "Excel XXIII sayfasındaki bono fiyatı üzerinden Macaulay D, Modifiye D ve faiz artışı sonrası fiyat etkisini hesaplar.",
+    description: "Bu modüldeki bono fiyatı üzerinden Macaulay D, Modifiye D ve faiz artışı sonrası fiyat etkisini hesaplar.",
     formula: ["Macaulay D = Σ(PV x t) / (Ödeme Sıklığı x Fiyat)", "Modifiye D = Macaulay D / (1 + İç Verim Oranı / 2)", "Bono Fiyatındaki Değişim = -Modifiye D x Faiz Artış Oranı"],
     inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "9.875", "%"), input("maturity", "Vade", "7", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "8.28", "%"), input("shock", "Faiz Artış Oranı", "1", "%")],
     calc: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
       const impact = -metrics.modified * rate(v.shock);
       return [result("Macaulay D", fmtNumber(metrics.macaulay, 6)), result("Modifiye D", fmtNumber(metrics.modified, 6)), result("Bono fiyatı", money(metrics.price)), result("Faiz artışı sonrası fiyat", money(metrics.price * (1 + impact)))];
     },
     detail: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
-      return table("Excel XXIII durasyon ve fiyat", "Nakit akışı tablosu", ["Periyot", "Kupon", "PV", "PV x t"], metrics.rows.map((row) => [row.period, money(row.cashFlow), money(row.pv), fmtNumber(row.weighted, 6)]));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      return table("Durasyon ve fiyat", "Nakit akışı tablosu", ["Periyot", "Kupon", "PV", "PV x t"], metrics.rows.map((row) => [row.period, money(row.cashFlow), money(row.pv), fmtNumber(row.weighted, 6)]));
     },
   },
   "portfolio-duration": {
@@ -1602,17 +1551,17 @@ Object.assign(moduleOverrides, {
       const durations = list(v.durations);
       const total = sum(values);
       const rows = values.map((value, index) => [index + 1, money(value), pct(total === 0 ? 0 : value / total), fmtNumber(durations[index] || 0, 6), fmtNumber((total === 0 ? 0 : value / total) * (durations[index] || 0), 6)]);
-      return table("Excel XXIV portföy durasyonu", "SUMPRODUCT(K, ağırlık)", ["Bono", "Piyasa Değeri", "Ağırlık", "Modifiye Durasyon", "Katkı"], rows);
+      return table("Portföy durasyonu", "SUMPRODUCT(K, ağırlık)", ["Bono", "Piyasa Değeri", "Ağırlık", "Modifiye Durasyon", "Katkı"], rows);
     },
   },
   convexity: {
     inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "6", "%"), input("maturity", "Vade", "5", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "6", "%")],
     calc: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
       return [result("Macaulay D", fmtNumber(metrics.macaulay, 6)), result("Modifiye D", fmtNumber(metrics.modified, 6)), result("Konveksite", fmtNumber(metrics.convex, 6)), result("Fiyat", money(metrics.price))];
     },
     detail: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
       const shocks = [-500, -100, -50, -10, -5, -1, 1, 5, 10, 50, 100, 200, 500];
       const rows = shocks.map((shock) => {
         const dr = shock / 10000;
@@ -1620,21 +1569,21 @@ Object.assign(moduleOverrides, {
         const convexPart = 0.5 * 100 * metrics.convex * dr ** 2;
         return [shock, `${fmtNumber(durationPart, 6)}%`, `${fmtNumber(durationPart + convexPart, 6)}%`, `${fmtNumber(convexPart, 6)}%`];
       });
-      return table("Excel XXV konveksite şok tablosu", "Durasyon + konveksite yaklaşımı", ["Faiz Değişimi (bps)", "Durasyon%", "D + Konveksite", "Konveksite Farkı"], rows);
+      return table("Konveksite şok tablosu", "Durasyon + konveksite yaklaşımı", ["Faiz Değişimi (bps)", "Durasyon%", "D + Konveksite", "Konveksite Farkı"], rows);
     },
   },
   "price-impact": {
-    description: "Excel XXVI sayfasındaki 7 yıllık bono için durasyon ve konveksite ile fiyat etkisini hesaplar.",
+    description: "Bu modüldeki 7 yıllık bono için durasyon ve konveksite ile fiyat etkisini hesaplar.",
     inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "9.875", "%"), input("maturity", "Vade", "7", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "8.28", "%"), input("shock", "Faiz Artış Oranı", "5", "%")],
     calc: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
       const dr = rate(v.shock);
       const pctChange = -metrics.modified * dr + 0.5 * metrics.convex * dr ** 2;
       return [result("Modifiye D", fmtNumber(metrics.modified, 6)), result("Konveksite", fmtNumber(metrics.convex, 6)), result("Toplam değişim", pct(pctChange)), result("Yeni fiyat", money(metrics.price * (1 + pctChange)))];
     },
     detail: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
-      return table("Excel XXVI fiyat etkisi", "Nakit akışı ve konveksite ham toplamı", ["Kalem", "Değer"], [
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      return table("Fiyat etkisi", "Nakit akışı ve konveksite ham toplamı", ["Kalem", "Değer"], [
         ["Fiyat", money(metrics.price)],
         ["Macaulay D", fmtNumber(metrics.macaulay, 6)],
         ["Modifiye D", fmtNumber(metrics.modified, 6)],
@@ -1644,10 +1593,10 @@ Object.assign(moduleOverrides, {
     },
   },
   "bond-price-convergence": {
-    description: "Excel XXVII sayfasındaki fiyat-faiz yakınsama şok tablosunu üretir.",
+    description: "Bu modüldeki fiyat-faiz yakınsama şok tablosunu üretir.",
     inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "6", "%"), input("maturity", "Vade", "5", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "6", "%"), input("increment", "Increment", "0.3", "%")],
     calc: (v) => {
-      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const metrics = bondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
       const up = rate(v.yield) + rate(v.increment);
       const down = rate(v.yield) - rate(v.increment);
       return [result("Fiyat", money(metrics.price)), result("Düşük faiz fiyatı", money(bondPrice(cleanNumber(v.face), rate(v.coupon), down, cleanNumber(v.maturity), cleanNumber(v.frequency)))), result("Yüksek faiz fiyatı", money(bondPrice(cleanNumber(v.face), rate(v.coupon), up, cleanNumber(v.maturity), cleanNumber(v.frequency))))];
@@ -1665,7 +1614,7 @@ Object.assign(moduleOverrides, {
         const price = bondPrice(face, coupon, y, maturity, frequency);
         return [fmtNumber((y - baseYield) * 10000, 0), pct(y), money(price), pct(price / base - 1)];
       });
-      return table("Excel XXVII bono fiyatı yakınsaması", "Increment ile faiz-fiyat tablosu", ["Faiz Değişimi (bps)", "Faiz Oranı", "Fiyat", "% Fiyat"], rows);
+      return table("Bono fiyatı yakınsaması", "Increment ile faiz-fiyat tablosu", ["Faiz Değişimi (bps)", "Faiz Oranı", "Fiyat", "% Fiyat"], rows);
     },
   },
   "effective-duration-convexity": {
@@ -1694,7 +1643,7 @@ Object.assign(moduleOverrides, {
       const p0 = bondPrice(face, coupon, y, maturity, frequency);
       const pDown = bondPrice(face, coupon, y - dy, maturity, frequency);
       const pUp = bondPrice(face, coupon, y + dy, maturity, frequency);
-      return table("Excel XXVIII efektif ölçüler", "P(-), P(0), P(+) ile hesap", ["Kalem", "Değer"], [
+      return table("Efektif ölçüler", "P(-), P(0), P(+) ile hesap", ["Kalem", "Değer"], [
         ["P(0)", money(p0)],
         ["P(-)", money(pDown)],
         ["P(+)", money(pUp)],
@@ -1704,7 +1653,7 @@ Object.assign(moduleOverrides, {
     },
   },
   "interest-price": {
-    description: "Excel XXIX sayfasındaki FİYAT, YÜZDESEL FİYAT DEĞİŞİMİ ve bir baz puanın fiyat değeri tablosunu oluşturur.",
+    description: "Bu modüldeki FİYAT, YÜZDESEL FİYAT DEĞİŞİMİ ve bir baz puanın fiyat değeri tablosunu oluşturur.",
     formula: ["Fiyat = c x ((1 - 1/(1+y/2)^n)/(y/2)) + 100/(1+y/2)^n", "% Değişim = (Yeni Fiyat - Baz Fiyat) / Baz Fiyat", "DV01 = ortalama bir baz puan fiyat farkı"],
     inputs: [input("rates", "Faiz satırları", "4; 5; 5.5; 5.9; 5.99; 6; 6.01; 6.1; 6.5; 7; 8", "%", "text")],
     calc: (v) => {
@@ -1729,14 +1678,14 @@ Object.assign(moduleOverrides, {
         ...cases.map(([, coupon, maturity]) => money(bondPrice(100, coupon, r, maturity, 2))),
         ...cases.map(([, coupon, maturity], index) => pct(bondPrice(100, coupon, r, maturity, 2) / basePrices[index] - 1)),
       ]);
-      return table("Excel XXIX faiz & fiyat", "Fiyat ve yüzdesel değişim matrisi", ["Faiz", ...cases.map(([name]) => name), ...cases.map(([name]) => `% ${name}`)], rows);
+      return table("Faiz & fiyat", "Fiyat ve yüzdesel değişim matrisi", ["Faiz", ...cases.map(([name]) => name), ...cases.map(([name]) => `% ${name}`)], rows);
     },
   },
 });
 
 Object.assign(moduleOverrides, {
   "parametric-var-position": {
-    description: "Excel XXX sayfasındaki tek bono pozisyonu için fiyat, PV, volatilite, ALFA ve sermaye gereksinimi hesaplar.",
+    description: "Bu modüldeki tek bono pozisyonu için fiyat, PV, volatilite, ALFA ve sermaye gereksinimi hesaplar.",
     formula: ["Fiyat = Nominal / (1 + Faiz oranı x VKGS / 365)", "PV = Fiyat x Bono Adeti", "ALFA = ROUNDUP(NORMINV(Güven Aralığı), 2)", "VaR(1 Gün) = ALFA x Fiyat x Volatilite x Bono Adeti", "VaR(10 Gün) = VaR(1 Gün) x SQRT(10)", "Sermaye Gereksinimi = k x VaR(10 Gün)"],
     variables: variables("VKGS:Vadeye kalan gün sayısı|ALFA:Normal dağılım güven katsayısı|k:Sermaye çarpanı|Volatilite:Seçilen tarihsel pencerenin standart sapması"),
     inputs: [
@@ -1762,7 +1711,7 @@ Object.assign(moduleOverrides, {
       const alpha = roundUp2(normInv(rate(v.confidence)));
       const var1 = alpha * price * rate(v.vol) * cleanNumber(v.bonds);
       const var10 = var1 * Math.sqrt(10);
-      return table("Excel XXX Parametrik VaR-Pozisyon", "Mayıs 2013 sonrası varsayılan volatiliteyle", ["Kalem", "Değer"], [
+      return table("Parametrik VaR-Pozisyon", "Mayıs 2013 sonrası varsayılan volatiliteyle", ["Kalem", "Değer"], [
         ["Fiyat", money(price)],
         ["PV", money(pv)],
         ["Volatilite", pct(rate(v.vol))],
@@ -1775,7 +1724,7 @@ Object.assign(moduleOverrides, {
     },
   },
   "parametric-var-portfolio": {
-    description: "Excel XXXI sayfasındaki dört pozisyonlu portföy için ağırlıklar, kovaryans matrisi, portföy sigması ve VaR hesaplar.",
+    description: "Bu modüldeki dört pozisyonlu portföy için ağırlıklar, kovaryans matrisi, portföy sigması ve VaR hesaplar.",
     formula: ["w_i = PV_i / ΣPV", "σ_Portföy = SQRT(w'Σw)", "VaR(1 Gün) = σ_Portföy x PV x ALFA", "VaR(10 Gün) = VaR(1 Gün) x SQRT(10)"],
     variables: variables("Σ:Risk faktörü kovaryans matrisi|w:Pozisyon ağırlıkları|σ_Portföy:Portföy günlük volatilitesi|ALFA:Normal dağılım güven katsayısı"),
     inputs: [
@@ -1811,11 +1760,11 @@ Object.assign(moduleOverrides, {
       const values = list(v.values);
       const total = sum(values);
       const weights = values.map((item) => (total === 0 ? 0 : item / total));
-      return table("Excel XXXI ağırlık tablosu", "Kovaryans matrisi hesapta kullanılır", ["Pozisyon", "PV", "w"], values.map((value, index) => [`Pozisyon ${index + 1}`, money(value), pct(weights[index])]));
+      return table("Ağırlık tablosu", "Kovaryans matrisi hesapta kullanılır", ["Pozisyon", "PV", "w"], values.map((value, index) => [`Pozisyon ${index + 1}`, money(value), pct(weights[index])]));
     },
   },
   "historical-simulation": {
-    description: "Excel XXXII sayfasındaki tarihsel benzetim mantığıyla tarihsel fiyat/PV değişimlerinden percentile VaR hesaplar.",
+    description: "Bu modüldeki tarihsel benzetim mantığıyla tarihsel fiyat/PV değişimlerinden percentile VaR hesaplar.",
     formula: ["Bono Fiyatı_t = Nominal / (1 + Faiz Oranı_t x VKGS / 365)", "PV_t = Bono Fiyatı_t x Bono Adeti", "K/Z_t = PV_t - PV_t-1", "VaR(1 Gün) = ABS(PERCENTILE(K/Z, 1 - Güven Aralığı))"],
     inputs: [
       input("nominal", "Nominal", "100000", "TL"),
@@ -1836,7 +1785,7 @@ Object.assign(moduleOverrides, {
       const pnl = list(v.pnl);
       const sorted = [...pnl].sort((a, b) => a - b);
       const var1 = Math.abs(percentileInc(pnl, 1 - rate(v.confidence)));
-      return table("Excel XXXII tarihsel benzetim", "PERCENTILE(K/Z, 1 - güven aralığı)", ["Sıra", "K/Z"], sorted.map((item, index) => [index + 1, money(item)]).concat([["VaR", money(var1)]]));
+      return table("Tarihsel benzetim", "PERCENTILE(K/Z, 1 - güven aralığı)", ["Sıra", "K/Z"], sorted.map((item, index) => [index + 1, money(item)]).concat([["VaR", money(var1)]]));
     },
   },
   "macro-hedge": {
@@ -1856,7 +1805,7 @@ Object.assign(moduleOverrides, {
       const newAssetDuration = (asset * assetDuration + swapNominal * swapAssetDuration) / newAsset;
       const newLiabilityDuration = (liability * liabilityDuration + swapNominal * swapLiabilityDuration) / newLiability;
       const newGap = newAssetDuration - newLiabilityDuration * (newLiability / newAsset);
-      return table("Excel XXXIII Makro Hedge", "Swap dahil bilanço durasyon gap hesabı", ["Kalem", "Başlangıç", "Swap Dahil"], [
+      return table("Makro Hedge", "Swap dahil bilanço durasyon gap hesabı", ["Kalem", "Başlangıç", "Swap Dahil"], [
         ["Asset Tutar", fmtNumber(asset, 6), fmtNumber(newAsset, 6)],
         ["Liability Tutar", fmtNumber(liability, 6), fmtNumber(newLiability, 6)],
         ["Asset Durasyon", fmtNumber(assetDuration, 6), fmtNumber(newAssetDuration, 6)],
@@ -1867,7 +1816,7 @@ Object.assign(moduleOverrides, {
     },
   },
   bootstrap: {
-    description: "Excel XXXIV sayfasındaki yarı yıllık bootstrap adımlarıyla spot eğri üretir.",
+    description: "Bu modüldeki yarı yıllık bootstrap adımlarıyla spot eğri üretir.",
     formula: ["Sıfır kuponlar için Spot = İç Verim Oranı", "Spot_n = 2 x (((Kupon + 100) / (Fiyat - önceki kupon PV toplamı))^(1/(2 x Vade)) - 1)"],
     inputs: [
       input("maturities", "Vade", "0.5;1;1.5;2;2.5;3;3.5;4;4.5;5", "", "text"),
@@ -1912,11 +1861,11 @@ Object.assign(moduleOverrides, {
         }
         return [maturity, pct(coupons[index] || 0), pct(yields[index] || 0), fmtNumber(prices[index] || 0, 4), pct(spots[index] || 0)];
       });
-      return table("Excel XXXIV bootstrap", "Spot kolonunun adım adım çözümü", ["Vade", "Kupon", "İç Verim Oranı", "Fiyat", "Spot"], rows);
+      return table("Bootstrap", "Spot kolonunun adım adım çözümü", ["Vade", "Kupon", "İç Verim Oranı", "Fiyat", "Spot"], rows);
     },
   },
   "echols-elliott": {
-    description: "Excel XXXV sayfasındaki S23 VKGS/Yield datasına doğrusal regresyon uygular ve residual çıktısını gösterir.",
+    description: "Bu modüldeki S23 VKGS/Yield datasına doğrusal regresyon uygular ve residual çıktısını gösterir.",
     formula: ["Yield = Intercept + β x VKGS", "R² = 1 - SS_res / SS_total"],
     inputs: [input("maturity", "VKGS", "1800", "gün")],
     calc: (v) => {
@@ -1931,7 +1880,7 @@ Object.assign(moduleOverrides, {
       const intercept = 0.6441150736525305;
       const slope = 0.0002697877900613368;
       const rows = days.map((day, index) => [index + 1, day, `${fmtNumber(yields[index], 6)}%`, `${fmtNumber(intercept + slope * day, 6)}%`, `${fmtNumber(yields[index] - (intercept + slope * day), 6)}%`]);
-      return table("Excel XXXV Echols-Elliot regression", "SUMMARY OUTPUT ve residual mantığı", ["Obs", "VKGS", "Yield", "Predicted Y", "Residual"], rows);
+      return table("Echols-Elliot regression", "SUMMARY OUTPUT ve residual mantığı", ["Obs", "VKGS", "Yield", "Predicted Y", "Residual"], rows);
     },
   },
   "black-scholes": {
@@ -1949,7 +1898,7 @@ Object.assign(moduleOverrides, {
     },
     detail: (v) => {
       const option = bsPrice(cleanNumber(v.spot), cleanNumber(v.strike), rate(v.rate), cleanNumber(v.time), rate(v.vol), v.optionType);
-      return table("Excel XXXVI Black Scholes", "VBA bs_price fonksiyonunun JS karşılığı", ["Kalem", "Değer"], [
+      return table("Black Scholes", "VBA bs_price fonksiyonunun JS karşılığı", ["Kalem", "Değer"], [
         ["Spot Price (S)", fmtNumber(cleanNumber(v.spot), 6)],
         ["Strike Price (K)", fmtNumber(cleanNumber(v.strike), 6)],
         ["Risk Free Rate (r)", pct(rate(v.rate))],
@@ -1968,7 +1917,7 @@ Object.assign(moduleOverrides, {
 modules.forEach((module) => {
   Object.assign(module, moduleOverrides[module.id] || {});
   if (!module.detail) {
-    module.detail = (values) => table("Excel hesap özeti", "Nihai sonuç hücreleri", ["Sonuç", "Değer"], module.calc(values).map((item) => [item.label, item.value]));
+    module.detail = (values) => table("Hesap özeti", "Nihai sonuç hücreleri", ["Sonuç", "Değer"], module.calc(values).map((item) => [item.label, item.value]));
   }
 });
 
@@ -2081,7 +2030,7 @@ const renderDetail = (module, values) => {
   }
 
   panel.hidden = false;
-  document.getElementById("detail-title").textContent = detail.title || "Excel hesap tablosu";
+  document.getElementById("detail-title").textContent = detail.title || "Hesap tablosu";
   document.getElementById("detail-note").textContent = detail.note || "";
 
   const tableEl = document.getElementById("detail-table");
@@ -2096,20 +2045,9 @@ const renderFormula = (module) => {
   const formulaWrap = document.getElementById("formula-stack");
   formulaWrap.innerHTML = "";
   module.formula.forEach((line) => {
-    const formula = document.createElement("div");
-    formula.className = "formula-line";
-    const latex = formulaToLatex(line);
-    const katexEngine = typeof window !== "undefined" ? window.katex : null;
-    if (katexEngine) {
-      katexEngine.render(latex, formula, {
-        displayMode: true,
-        throwOnError: false,
-        strict: "ignore",
-      });
-    } else {
-      formula.textContent = line;
-    }
-    formulaWrap.appendChild(formula);
+    const code = document.createElement("code");
+    code.textContent = line;
+    formulaWrap.appendChild(code);
   });
 
   const variableWrap = document.getElementById("variable-list");
