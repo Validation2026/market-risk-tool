@@ -759,6 +759,57 @@ const percentileInc = (items, percentile) => {
   return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
 };
 
+const escapeTexText = (value) =>
+  String(value)
+    .replace(/\\/g, "\\textbackslash{}")
+    .replace(/[{}_$%&#]/g, (match) => `\\${match}`);
+
+const formulaToLatex = (line) => {
+  const raw = String(line || "").trim();
+  const labelled = raw.match(/^([^=]+?):\s*(.+)$/);
+  const label = labelled ? `\\text{${escapeTexText(labelled[1])}:}\\quad ` : "";
+  let expression = labelled ? labelled[2] : raw;
+
+  expression = expression
+    .replace(/([A-Za-zÇĞİÖŞÜçğıöşü]+)_\(([^)]+)\)/g, "$1_{$2}")
+    .replace(/([A-Za-zÇĞİÖŞÜçğıöşü]+)_([A-Za-z0-9+\-]+)/g, "$1_{$2}")
+    .replace(/P_-/g, "P_{-}")
+    .replace(/P_\+/g, "P_{+}")
+    .replace(/P0/g, "P_0")
+    .replace(/Δ/g, "\\Delta ")
+    .replace(/Σ/g, "\\sum ")
+    .replace(/σ/g, "\\sigma ")
+    .replace(/α/g, "\\alpha ")
+    .replace(/τ/g, "\\tau ")
+    .replace(/√/g, "\\sqrt")
+    .replace(/×/g, "\\times")
+    .replace(/\s+x\s+/g, " \\times ")
+    .replace(/\*/g, "\\times ")
+    .replace(/EXP\(([^)]+)\)/gi, "e^{$1}")
+    .replace(/SQRT\(([^)]+)\)/gi, "\\sqrt{$1}")
+    .replace(/LN\(([^)]+)\)/gi, "\\ln($1)")
+    .replace(/POWER\(([^,]+),\s*([^)]+)\)/gi, "$1^{$2}")
+    .replace(/NORMINV\(([^)]+)\)/gi, "\\operatorname{NORMINV}($1)")
+    .replace(/PERCENTILE\(([^)]+)\)/gi, "\\operatorname{PERCENTILE}($1)")
+    .replace(/ROUNDUP\(([^)]+)\)/gi, "\\operatorname{ROUNDUP}($1)")
+    .replace(/LinearInterpolator/gi, "\\operatorname{LinearInterpolator}")
+    .replace(/FORECAST/gi, "\\operatorname{FORECAST}")
+    .replace(/SUMPRODUCT/gi, "\\operatorname{SUMPRODUCT}")
+    .replace(/SUM\(/gi, "\\operatorname{SUM}(")
+    .replace(/ABS\(/gi, "\\operatorname{ABS}(")
+    .replace(/IF\(/gi, "\\operatorname{IF}(")
+    .replace(/PMT\(/gi, "\\operatorname{PMT}(")
+    .replace(/COVAR\(/gi, "\\operatorname{COVAR}(")
+    .replace(/VAR\(/gi, "\\operatorname{VAR}(")
+    .replace(/STDEV\(/gi, "\\operatorname{STDEV}(")
+    .replace(/R²/g, "R^2")
+    .replace(/²/g, "^2")
+    .replace(/³/g, "^3")
+    .replace(/%/g, "\\%");
+
+  return `\\displaystyle ${label}${expression}`;
+};
+
 const isoDate = (date) => date.toISOString().slice(0, 10);
 const dateUtc = (year, month, day) => new Date(Date.UTC(year, month - 1, day));
 const addMonths = (date, months) => dateUtc(date.getUTCFullYear(), date.getUTCMonth() + months + 1, date.getUTCDate());
@@ -2045,9 +2096,20 @@ const renderFormula = (module) => {
   const formulaWrap = document.getElementById("formula-stack");
   formulaWrap.innerHTML = "";
   module.formula.forEach((line) => {
-    const code = document.createElement("code");
-    code.textContent = line;
-    formulaWrap.appendChild(code);
+    const formula = document.createElement("div");
+    formula.className = "formula-line";
+    const latex = formulaToLatex(line);
+    const katexEngine = typeof window !== "undefined" ? window.katex : null;
+    if (katexEngine) {
+      katexEngine.render(latex, formula, {
+        displayMode: true,
+        throwOnError: false,
+        strict: "ignore",
+      });
+    } else {
+      formula.textContent = line;
+    }
+    formulaWrap.appendChild(formula);
   });
 
   const variableWrap = document.getElementById("variable-list");
