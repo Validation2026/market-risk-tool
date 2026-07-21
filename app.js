@@ -24,7 +24,7 @@ const rate = (value) => cleanNumber(value) / 100;
 const pow = (base, exponent) => (base > 0 ? Math.pow(base, exponent) : 0);
 const list = (value) =>
   String(value || "")
-    .split(/[;\n,]+/)
+    .split(/[;\n]+|,\s+/)
     .map(cleanNumber)
     .filter((item) => Number.isFinite(item));
 
@@ -116,6 +116,18 @@ const input = (key, label, defaultValue, suffix = "", type = "number", hint = ""
 
 const result = (label, value) => ({ label, value });
 
+const isListInput = (item) => item.type === "text" && String(item.defaultValue).includes(";");
+const splitListItems = (value) =>
+  String(value || "")
+    .split(/[;\n]+|,\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+const joinListItems = (items) => items.map((item) => String(item).trim()).filter(Boolean).join("; ");
+
+const setDraftValue = (module, key, value) => {
+  state.drafts[module.id] = { ...(state.drafts[module.id] || {}), [key]: value };
+};
+
 const bondFlows = (face, couponRate, maturity, frequency) => {
   const periods = Math.max(1, Math.round(maturity * frequency));
   const coupon = (face * couponRate) / frequency;
@@ -203,7 +215,7 @@ const modules = [
     description: "Birden fazla dönem nakit akışını aynı iskonto oranıyla bugünkü değere indirger.",
     formula: ["PV = Σ CF_t / (1 + r)^t", "NPV = -I0 + Σ CF_t / (1 + r)^t"],
     variables: variables("CF_t:t dönemindeki nakit akışı|r:Dönemsel iskonto oranı|I0:Başlangıç yatırımı|t:Nakit akışının gerçekleştiği dönem"),
-    inputs: [input("initial", "Başlangıç çıkışı", "50000", "TL"), input("flows", "Nakit akışları", "15000; 18000; 22000; 26000", "", "text", "Değerleri noktalı virgül ile ayır: 1000; 1200; 900"), input("rate", "Dönemsel iskonto", "8", "%")],
+    inputs: [input("initial", "Başlangıç çıkışı", "50000", "TL"), input("flows", "Nakit akışları", "15000; 18000; 22000; 26000", "", "text", "Her nakit akışını ayrı kutuya yaz."), input("rate", "Dönemsel iskonto", "8", "%")],
     insight: "Pozitif NPV, iskonto oranı dikkate alındığında projenin ekonomik değer yarattığını gösterir.",
     calc: (v) => {
       const flows = list(v.flows), r = rate(v.rate);
@@ -320,7 +332,7 @@ const modules = [
     description: "Nakit akışı listesinin toplamını, iskonto edilmiş değerini ve ağırlıklı ortalama vadesini özetler.",
     formula: ["Toplam CF = Σ CF_t", "Ağırlıklı vade = Σ(t x CF_t) / Σ CF_t"],
     variables: variables("CF_t:t dönemindeki nakit akışı|r:Dönemsel iskonto oranı|t:Dönem numarası|Σ:Tüm dönemlerin toplamı"),
-    inputs: [input("flows", "Nakit akışları", "10000; -3000; 15000; 18000", "", "text", "Değerleri noktalı virgül ile ayır."), input("rate", "Dönemsel iskonto", "4", "%")],
+    inputs: [input("flows", "Nakit akışları", "10000; -3000; 15000; 18000", "", "text", "Her nakit akışını ayrı kutuya yaz."), input("rate", "Dönemsel iskonto", "4", "%")],
     insight: "Bu modül nakit akışının sadece toplamını değil, zaman değerini de görünür yapar.",
     calc: (v) => {
       const flows = list(v.flows), r = rate(v.rate);
@@ -637,7 +649,7 @@ const modules = [
     description: "Geçmiş getiri senaryolarını portföy değerine uygulayarak dağılım bazlı tarihsel VaR hesaplar.",
     formula: ["Kayıp_i = -V x r_i", "VaR_α = kayıp dağılımının α kantili"],
     variables: variables("V:Portföy değeri|r_i:i tarihsel senaryosundaki getiri|α:Güven düzeyi|VaR_α:Seçilen kantildeki kayıp"),
-    inputs: [input("portfolio", "Portföy değeri", "10000000", "TL"), input("returns", "Tarihsel getiriler", "-0.8; 0.4; -1.2; 0.6; -2.1; 1.0; -0.3; -1.6; 0.2; -0.9", "", "text", "Getirileri yüzde olarak gir: -1.2; 0.4; -0.8"), input("confidence", "Güven düzeyi", "99", "%")],
+    inputs: [input("portfolio", "Portföy değeri", "10000000", "TL"), input("returns", "Tarihsel getiriler", "-0.8; 0.4; -1.2; 0.6; -2.1; 1.0; -0.3; -1.6; 0.2; -0.9", "", "text", "Her getiriyi yüzde değer olarak ayrı kutuya yaz."), input("confidence", "Güven düzeyi", "99", "%")],
     insight: "Tarihsel benzetim dağılım varsayımı gerektirmez; veri penceresi seçimi sonucu ciddi şekilde etkiler.",
     calc: (v) => {
       const portfolio = cleanNumber(v.portfolio), returns = list(v.returns), confidence = Math.min(0.999, Math.max(0.5, rate(v.confidence)));
@@ -1977,22 +1989,113 @@ const renderModuleList = () => {
   });
 };
 
+const renderListInput = (module, item, values) => {
+  const field = document.createElement("div");
+  field.className = "field wide list-field";
+
+  const title = document.createElement("span");
+  title.innerHTML = `${item.label}${item.suffix ? `<em>${item.suffix}</em>` : ""}`;
+  field.appendChild(title);
+
+  const editor = document.createElement("div");
+  editor.className = "list-editor";
+  const entries = [];
+
+  const refreshIndexes = () => {
+    entries.forEach((entry, index) => {
+      entry.index.textContent = index + 1;
+      entry.input.setAttribute("aria-label", `${item.label} ${index + 1}`);
+      entry.remove.hidden = entries.length <= 1;
+    });
+  };
+
+  const syncList = () => {
+    setDraftValue(module, item.key, joinListItems(entries.map((entry) => entry.input.value)));
+    renderResultsOnly();
+  };
+
+  const addRow = (value = "", shouldFocus = false) => {
+    const row = document.createElement("div");
+    row.className = "list-row";
+
+    const index = document.createElement("span");
+    index.className = "list-index";
+
+    const inputEl = document.createElement("input");
+    inputEl.type = "text";
+    inputEl.inputMode = "decimal";
+    inputEl.value = value;
+    inputEl.addEventListener("input", syncList);
+    inputEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addRow("", true);
+      }
+    });
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "list-remove";
+    remove.textContent = "Sil";
+    remove.addEventListener("click", () => {
+      const position = entries.findIndex((entry) => entry.row === row);
+      if (position >= 0) entries.splice(position, 1);
+      row.remove();
+      if (!entries.length) addRow("");
+      refreshIndexes();
+      syncList();
+    });
+
+    row.appendChild(index);
+    row.appendChild(inputEl);
+    row.appendChild(remove);
+    entries.push({ row, index, input: inputEl, remove });
+    editor.appendChild(row);
+    refreshIndexes();
+    if (shouldFocus && inputEl.focus) inputEl.focus();
+    return inputEl;
+  };
+
+  const initialItems = splitListItems(values[item.key]);
+  (initialItems.length ? initialItems : [""]).forEach((value) => addRow(value));
+
+  const addButton = document.createElement("button");
+  addButton.type = "button";
+  addButton.className = "list-add";
+  addButton.textContent = "Değer ekle";
+  addButton.addEventListener("click", () => addRow("", true));
+
+  field.appendChild(editor);
+  field.appendChild(addButton);
+
+  const small = document.createElement("small");
+  small.textContent = item.hint || "Her değeri ayrı kutuya yaz; Enter ile yeni değer ekleyebilirsin.";
+  field.appendChild(small);
+
+  return field;
+};
+
 const renderInputs = (module, values) => {
   const wrap = document.getElementById("input-grid");
   wrap.innerHTML = "";
   module.inputs.forEach((item) => {
+    if (isListInput(item)) {
+      wrap.appendChild(renderListInput(module, item, values));
+      return;
+    }
+
     const label = document.createElement("label");
     label.className = item.type === "text" ? "field wide" : "field";
     label.innerHTML = `<span>${item.label}${item.suffix ? `<em>${item.suffix}</em>` : ""}</span>`;
 
     const control =
       item.type === "text"
-        ? Object.assign(document.createElement("textarea"), { rows: 3 })
+        ? Object.assign(document.createElement("input"), { type: "text" })
         : Object.assign(document.createElement("input"), { inputMode: "decimal" });
 
     control.value = values[item.key];
     control.addEventListener("input", (event) => {
-      state.drafts[module.id] = { ...(state.drafts[module.id] || {}), [item.key]: event.target.value };
+      setDraftValue(module, item.key, event.target.value);
       renderResultsOnly();
     });
     label.appendChild(control);

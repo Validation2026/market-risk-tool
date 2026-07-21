@@ -426,6 +426,80 @@ a {
   line-height: 1.45;
 }
 
+.list-field {
+  align-content: start;
+}
+
+.list-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.list-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  border: 1px solid rgba(10, 31, 68, 0.1);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 6px;
+}
+
+.list-index {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.list-row input {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 8px 4px;
+  box-shadow: none;
+}
+
+.list-row input:focus {
+  box-shadow: none;
+}
+
+.list-remove,
+.list-add {
+  border: 0;
+  border-radius: 12px;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.list-remove {
+  min-height: 32px;
+  background: #f3f7ff;
+  padding: 0 9px;
+  color: var(--muted);
+}
+
+.list-remove:hover {
+  background: #e6f0ff;
+  color: var(--blue);
+}
+
+.list-add {
+  justify-self: start;
+  min-height: 40px;
+  border: 1px dashed rgba(37, 99, 235, 0.34);
+  background: #f7fbff;
+  padding: 0 13px;
+  color: var(--blue);
+}
+
 .result-stack {
   display: grid;
   gap: 12px;
