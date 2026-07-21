@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Piyasa riski, faiz, bono, türev, durasyon, konveksite ve VaR hesaplamaları için modüler finansal hesaplama toolu."
+    />
+    <title>Piyasa Riski Modüler Hesaplama Toolu</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <div class="ambient ambient-one"></div>
+      <div class="ambient ambient-two"></div>
+
+      <section class="hero-section">
+        <nav class="topbar" aria-label="Uygulama üst bilgisi">
+          <span class="brand-mark">MR</span>
+          <span>Piyasa Riski Modüler Hesaplama Toolu</span>
+          <a href="#workbench" class="topbar-link">Hesaplamaya geç</a>
+        </nav>
+
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">36 finansal model tek ekranda</p>
+            <h1>Piyasa riski için şık, hızlı ve formül odaklı hesaplama merkezi.</h1>
+            <p class="hero-lead">
+              Faiz, bono, duration, convexity, VaR, swap, option ve getiri eğrisi
+              hesaplamalarını tek bir profesyonel arayüzde toplar. Her modülde açıklama,
+              gerçek finansal formül, değişken sözlüğü ve canlı sonuç bulunur.
+            </p>
+            <div class="hero-actions">
+              <a href="#workbench" class="primary-action">Modülleri aç</a>
+              <span class="secondary-note">GitHub + Netlify yayınına hazır statik paket</span>
+            </div>
+          </div>
+
+          <aside class="hero-card" aria-label="Canlı örnek sonuç">
+            <div class="ticker-row">
+              <span>PV</span>
+              <span>Duration</span>
+              <span>VaR</span>
+            </div>
+            <div class="orbit-card">
+              <span class="pulse-dot"></span>
+              <p>Aktif modül</p>
+              <strong id="hero-active-title">Basit Faiz & Bileşik Faiz</strong>
+            </div>
+            <div class="mini-results" id="hero-results"></div>
+          </aside>
+        </div>
+
+        <div class="stat-strip" aria-label="Site kapsamı">
+          <div><strong>36</strong><span>modül</span></div>
+          <div><strong>6</strong><span>kategori</span></div>
+          <div><strong>Canlı</strong><span>hesaplama</span></div>
+          <div><strong>Mobil</strong><span>uyumlu</span></div>
+        </div>
+      </section>
+
+      <section id="workbench" class="workbench">
+        <aside class="module-browser" aria-label="Modül listesi">
+          <div class="browser-header">
+            <p class="eyebrow">Modül kütüphanesi</p>
+            <h2>Hesaplama seç</h2>
+          </div>
+
+          <label class="search-box">
+            <span>Arama</span>
+            <input id="search-input" type="search" placeholder="VaR, bono, swap..." />
+          </label>
+
+          <div class="category-pills" id="category-pills" aria-label="Kategori filtreleri"></div>
+          <div class="module-list" id="module-list"></div>
+        </aside>
+
+        <section class="calculator-panel" aria-live="polite">
+          <div class="module-title-row">
+            <div>
+              <p class="eyebrow" id="active-category">Faiz ve Nakit Akışı</p>
+              <h2 id="active-title">Basit Faiz & Bileşik Faiz</h2>
+              <p id="active-description"></p>
+            </div>
+            <span class="module-count" id="module-count">1/36</span>
+          </div>
+
+          <div class="panel-grid">
+            <div class="input-panel">
+              <h3>Parametreler</h3>
+              <div class="input-grid" id="input-grid"></div>
+            </div>
+            <div class="result-panel">
+              <h3>Sonuçlar</h3>
+              <div class="result-stack" id="result-stack"></div>
+            </div>
+          </div>
+
+          <div class="knowledge-grid">
+            <article class="formula-card">
+              <h3>Formül</h3>
+              <div class="formula-stack" id="formula-stack"></div>
+            </article>
+            <article class="formula-card">
+              <h3>Değişkenlerin anlamı</h3>
+              <div class="variable-list" id="variable-list"></div>
+            </article>
+          </div>
+
+          <div class="insight-card">
+            <span>Profesyonel not</span>
+            <p id="insight-text"></p>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
