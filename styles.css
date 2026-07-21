@@ -84,7 +84,7 @@ a {
 }
 
 .hero-section {
-  padding: 4px 0 28px;
+  padding: 4px 0 18px;
 }
 
 .topbar {
@@ -129,7 +129,7 @@ a {
   grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   align-items: stretch;
-  padding: 56px 0 28px;
+  padding: 34px 0 20px;
 }
 
 .eyebrow {
@@ -145,9 +145,9 @@ a {
   max-width: 980px;
   margin: 0;
   color: var(--navy);
-  font-size: clamp(2.4rem, 5vw, 5.8rem);
+  font-size: clamp(2.2rem, 4.2vw, 4.4rem);
   font-weight: 860;
-  line-height: 0.96;
+  line-height: 1;
   letter-spacing: 0;
 }
 
@@ -221,7 +221,7 @@ a {
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
-  padding: 20px 0 60px;
+  padding: 12px 0 60px;
 }
 
 .module-browser,
@@ -407,7 +407,8 @@ a {
 .input-panel,
 .result-panel,
 .formula-card,
-.insight-card {
+.insight-card,
+.detail-panel {
   border: 1px solid rgba(10, 31, 68, 0.1);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.72);
@@ -503,6 +504,73 @@ a {
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.9fr);
   gap: 16px;
   margin-top: 16px;
+}
+
+.detail-panel {
+  margin-top: 16px;
+}
+
+.detail-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.detail-heading h3 {
+  margin: 0;
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+.detail-heading span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid rgba(10, 31, 68, 0.08);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.detail-panel table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+}
+
+.detail-panel th,
+.detail-panel td {
+  border-bottom: 1px solid rgba(10, 31, 68, 0.08);
+  padding: 10px 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.detail-panel th:first-child,
+.detail-panel td:first-child {
+  text-align: left;
+}
+
+.detail-panel th {
+  background: #f3f8ff;
+  color: var(--navy);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.detail-panel td {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.detail-panel tr:last-child td {
+  border-bottom: 0;
 }
 
 .formula-stack {
@@ -633,31 +701,34 @@ a {
   }
 
   .hero-grid {
-    padding: 30px 0 18px;
+    padding: 22px 0 12px;
   }
 
   .hero-copy h1 {
-    font-size: 2.28rem;
+    font-size: 2rem;
     line-height: 1.02;
   }
 
   .hero-lead {
-    margin-top: 18px;
+    margin-top: 14px;
     font-size: 0.98rem;
-    line-height: 1.65;
+    line-height: 1.55;
   }
 
   .hero-actions {
-    margin-top: 20px;
+    margin-top: 16px;
   }
 
   .primary-action {
     width: 100%;
   }
 
-  .stat-strip,
   .input-grid {
     grid-template-columns: 1fr;
+  }
+
+  .stat-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .calculator-panel,

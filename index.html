@@ -19,17 +19,17 @@
         <nav class="topbar" aria-label="Uygulama üst bilgisi">
           <span class="brand-mark">MR</span>
           <span>Piyasa Riski Modüler Hesaplama Toolu</span>
-          <a href="#workbench" class="topbar-link">Hesaplamaya geç</a>
+          <a href="#workbench" class="topbar-link">Modüller</a>
         </nav>
 
         <div class="hero-grid">
           <div class="hero-copy">
-            <p class="eyebrow">36 finansal model tek ekranda</p>
-            <h1>Piyasa riski için şık, hızlı ve formül odaklı hesaplama merkezi.</h1>
+            <p class="eyebrow">Excel replika hesap motoru</p>
+            <h1>Piyasa Riski Hesaplama Merkezi</h1>
             <p class="hero-lead">
               Faiz, bono, duration, convexity, VaR, swap, option ve getiri eğrisi
-              hesaplamalarını tek bir profesyonel arayüzde toplar. Her modülde açıklama,
-              gerçek finansal formül, değişken sözlüğü ve canlı sonuç bulunur.
+              hesaplarını Excel terimleri, formüller, değişken açıklamaları ve ara
+              hesap tablolarıyla canlı çalıştır.
             </p>
             <div class="hero-actions">
               <a href="#workbench" class="primary-action">Modülleri aç</a>
@@ -79,6 +79,16 @@
             <div class="result-panel">
               <h3>Sonuçlar</h3>
               <div class="result-stack" id="result-stack"></div>
+            </div>
+          </div>
+
+          <div class="detail-panel" id="detail-panel" hidden>
+            <div class="detail-heading">
+              <h3 id="detail-title">Excel hesap tablosu</h3>
+              <span id="detail-note"></span>
+            </div>
+            <div class="table-scroll">
+              <table id="detail-table"></table>
             </div>
           </div>
 

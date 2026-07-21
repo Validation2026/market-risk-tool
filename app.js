@@ -41,6 +41,8 @@ const money = (value) =>
 const pct = (value) => `${fmtNumber(value * 100, 4)}%`;
 const bp = (value) => `${fmtNumber(value * 10000, 2)} bp`;
 
+const plainPct = (value, digits = 4) => fmtNumber(value * 100, digits);
+
 const erf = (x) => {
   const sign = x >= 0 ? 1 : -1;
   const abs = Math.abs(x);
@@ -54,6 +56,48 @@ const erf = (x) => {
 };
 
 const normCdf = (x) => 0.5 * (1 + erf(x / Math.SQRT2));
+
+const normInv = (p) => {
+  if (p <= 0 || p >= 1) return 0;
+  const a = [-39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472, 2.50662827745924];
+  const b = [-54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857];
+  const c = [-0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373, 4.37466414146497, 2.93816398269878];
+  const d = [0.00778469570904146, 0.32246712907004, 2.445134137143, 3.75440866190742];
+  const plow = 0.02425;
+  const phigh = 1 - plow;
+  let q;
+  if (p < plow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  }
+  if (p > phigh) {
+    q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1);
+  }
+  q = p - 0.5;
+  const r = q * q;
+  return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q /
+    (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+};
+
+const pmt = (rateValue, periods, presentValue) =>
+  rateValue === 0
+    ? presentValue / periods
+    : (presentValue * rateValue) / (1 - 1 / pow(1 + rateValue, periods));
+
+const linearInterpolate = (x, xs, ys) => {
+  if (!xs.length || xs.length !== ys.length) return 0;
+  if (x <= xs[0]) return ys[0];
+  for (let i = 0; i < xs.length - 1; i += 1) {
+    if (x <= xs[i + 1]) {
+      const span = xs[i + 1] - xs[i];
+      return span === 0 ? ys[i] : ys[i] + ((ys[i + 1] - ys[i]) * (x - xs[i])) / span;
+    }
+  }
+  return ys[ys.length - 1];
+};
 
 const variables = (items) =>
   items.split("|").map((item) => {
@@ -675,6 +719,1208 @@ const modules = [
   },
 ];
 
+const sum = (items) => items.reduce((total, item) => total + item, 0);
+const average = (items) => (items.length ? sum(items) / items.length : 0);
+const smartRate = (value) => {
+  const parsed = cleanNumber(value);
+  return Math.abs(parsed) > 1 ? parsed / 100 : parsed;
+};
+const smartRateList = (value) => list(value).map((item) => (Math.abs(item) > 1 ? item / 100 : item));
+const roundUp2 = (value) => Math.ceil(value * 100) / 100;
+const fmtMaybeMoney = (value) => (Math.abs(value) >= 1000 ? money(value) : fmtNumber(value, 6));
+const table = (title, note, columns, rows) => ({ title, note, columns, rows });
+
+const variance = (items) => {
+  if (items.length < 2) return 0;
+  const mean = average(items);
+  return sum(items.map((item) => (item - mean) ** 2)) / (items.length - 1);
+};
+
+const stdDev = (items) => Math.sqrt(variance(items));
+
+const covariance = (left, right) => {
+  const length = Math.min(left.length, right.length);
+  if (length < 2) return 0;
+  const l = left.slice(0, length);
+  const r = right.slice(0, length);
+  const lm = average(l);
+  const rm = average(r);
+  return sum(l.map((item, index) => (item - lm) * (r[index] - rm))) / (length - 1);
+};
+
+const percentileInc = (items, percentile) => {
+  const sorted = [...items].sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  const p = Math.min(1, Math.max(0, percentile));
+  const index = (sorted.length - 1) * p;
+  const lower = Math.floor(index);
+  const upper = Math.ceil(index);
+  if (lower === upper) return sorted[lower];
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+};
+
+const isoDate = (date) => date.toISOString().slice(0, 10);
+const dateUtc = (year, month, day) => new Date(Date.UTC(year, month - 1, day));
+const addMonths = (date, months) => dateUtc(date.getUTCFullYear(), date.getUTCMonth() + months + 1, date.getUTCDate());
+const daysBetween = (future, start) => Math.round((future.getTime() - start.getTime()) / 86400000);
+
+const excelLoanCurve = {
+  days: [90, 180, 360, 720, 1080, 1440, 1800, 2520, 2880, 3240, 3600],
+  rates: [0.094124, 0.094524, 0.095739, 0.097314, 0.098224, 0.098781, 0.098911, 0.099571, 0.100181, 0.100921, 0.101821],
+};
+
+const couponBondCurve = {
+  days: [90, 180, 365, 730, 1095, 1460, 1825, 2190, 3285, 3650],
+  rates: [0.0836, 0.0844, 0.0886, 0.0878, 0.0897, 0.085, 0.0881, 0.0867, 0.0884, 0.09],
+};
+
+const interpolationCurve = {
+  days: [1, 5, 15, 30, 45, 60, 90, 100, 120, 140, 150, 180, 200, 210, 240, 270, 290, 300, 310, 340, 365],
+  yields: [1, 2.5, 3.2, 4, 4, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5],
+};
+
+const excelBondMetrics = (face, couponRate, yieldRate, maturity, frequency) => {
+  const periods = Math.max(1, Math.round(maturity * frequency));
+  const discount = 1 + yieldRate / frequency;
+  const coupon = (face * couponRate) / frequency;
+  const rows = Array.from({ length: periods }, (_, index) => {
+    const period = index + 1;
+    const cashFlow = period === periods ? coupon + face : coupon;
+    const pv = cashFlow / pow(discount, period);
+    const weighted = pv * period;
+    const convexRaw = weighted * (period + 1);
+    return { period, cashFlow, pv, weighted, convexRaw };
+  });
+  const price = sum(rows.map((row) => row.pv));
+  const weighted = sum(rows.map((row) => row.weighted));
+  const convexRaw = sum(rows.map((row) => row.convexRaw));
+  const macaulayValue = price === 0 ? 0 : weighted / (frequency * price);
+  const modified = macaulayValue / (1 + yieldRate / frequency);
+  const convex = price === 0 ? 0 : convexRaw / (frequency ** 2 * (1 + yieldRate / frequency) ** 2 * price);
+  return { rows, price, weighted, convexRaw, macaulay: macaulayValue, modified, convex };
+};
+
+const levelLoanSchedule = (values) => {
+  const loan = cleanNumber(values.loan);
+  const annual = smartRate(values.annualRate);
+  const months = Math.min(360, Math.max(1, Math.round(cleanNumber(values.months))));
+  const basis = Math.max(1, cleanNumber(values.dayCount));
+  const monthlyRate = annual / 12;
+  const installment = monthlyRate === 0 ? loan / months : pmt(monthlyRate, months, loan);
+  const portfolioDate = dateUtc(2013, 8, 28);
+  const firstDate = dateUtc(2013, 9, 15);
+  let balance = loan;
+  return Array.from({ length: months }, (_, index) => {
+    const date = addMonths(firstDate, index);
+    const days = daysBetween(date, portfolioDate);
+    const year = days / basis;
+    const interest = balance * annual / 12;
+    const principal = installment - interest;
+    balance = Math.max(0, balance - principal);
+    const curveRate = linearInterpolate(days, excelLoanCurve.days, excelLoanCurve.rates);
+    const df = 1 / pow(1 + curveRate, year);
+    const pv = installment * df;
+    return {
+      period: index + 1,
+      date: isoDate(date),
+      days,
+      year,
+      nominal: installment,
+      principal,
+      interest,
+      balance,
+      curveRate,
+      df,
+      pv,
+    };
+  });
+};
+
+const rateForward = (shortRate, shortTime, longRate, longTime, delta) =>
+  delta === 0 ? 0 : pow(pow(1 + longRate, longTime) / pow(1 + shortRate, shortTime), 1 / delta) - 1;
+
+const frnRows = ({ nominal, coupon, spread, days, ym, ynm, zero, period, finalNominal, discountSpread = 0 }) =>
+  days.map((day, index) => {
+    const m = day / 360;
+    const n = period;
+    const longTime = m + n;
+    const forward = rateForward(ym[index], m, ynm[index], longTime, n);
+    const interest = nominal * ((index === 0 ? coupon : forward) + spread) * period;
+    const redemption = index === days.length - 1 ? finalNominal : 0;
+    const df = 1 / pow(1 + zero[index] + discountSpread, m);
+    const pv = (interest + redemption) * df;
+    return { period: index + 1, day, m, n, longTime, ym: ym[index], ynm: ynm[index], forward, interest, redemption, zero: zero[index], df, pv };
+  });
+
+const fixedSwapRows = (notional, fixedRate) => {
+  const rows = [
+    { label: "Nominal", days: 35, year: 35 / 360, tau: 0, rate: 0.07403697, payment: -notional, simple: true },
+    { label: "Kupon", days: 400, year: 400 / 360, tau: 365 / 360, rate: 0.07990346, payment: notional * fixedRate * (365 / 360) },
+    { label: "Efektif", days: 765, year: 765 / 360, tau: 365 / 360, rate: 0.08516347, payment: notional + notional * fixedRate * (365 / 360) },
+  ];
+  return rows.map((row) => {
+    const df = row.simple ? 1 / (1 + row.days * row.rate / 360) : 1 / pow(1 + row.rate, row.year);
+    return { ...row, df, pv: row.payment * df };
+  });
+};
+
+const floatingSwapRows = (notional) => {
+  const days = [35, 125, 217, 309, 400, 490, 582, 674, 765];
+  const rates = [0.07403697, 0.07788072, 0.0788687, 0.07914228, 0.07990346, 0.08148447, 0.08302702, 0.08449573, 0.08516347];
+  const years = days.map((day) => day / 360);
+  const dfs = days.map((day, index) => (day <= 365 ? 1 / (1 + day * rates[index] / 360) : 1 / pow(1 + rates[index], years[index])));
+  return days.map((day, index) => {
+    const tau = index === 0 ? 0 : years[index] - years[index - 1];
+    const forward = index === 0 ? 0 : (1 - dfs[index] / dfs[index - 1]) / ((dfs[index] / dfs[index - 1]) * tau);
+    const payment = index === 0 ? -notional : notional * forward * tau + (index === days.length - 1 ? notional : 0);
+    return { period: index + 1, day, year: years[index], tau, rate: rates[index], df: dfs[index], forward, payment, pv: payment * dfs[index] };
+  });
+};
+
+const bsPrice = (spot, strike, riskFree, time, vol, type = "Put", dividend = 0) => {
+  const safeTime = Math.max(time, 0.000001);
+  const denom = vol * Math.sqrt(safeTime);
+  const d1 = denom === 0 ? 0 : (Math.log(spot / strike) + (riskFree - dividend + 0.5 * vol * vol) * safeTime) / denom;
+  const d2 = d1 - denom;
+  const call = spot * Math.exp(-dividend * safeTime) * normCdf(d1) - strike * Math.exp(-riskFree * safeTime) * normCdf(d2);
+  const put = strike * Math.exp(-riskFree * safeTime) * normCdf(-d2) - spot * Math.exp(-dividend * safeTime) * normCdf(-d1);
+  return { call, put, d1, d2, price: String(type).toLocaleLowerCase("tr-TR").includes("call") ? call : put };
+};
+
+const moduleOverrides = {};
+
+Object.assign(moduleOverrides, {
+  "simple-compound-interest": {
+    title: "Basit Faiz & Bileşik Faiz",
+    description: "Excel I sayfasındaki nominal, T ve r girişleriyle basit ve bileşik FV hesaplar.",
+    formula: ["Basit FV = Nominal x (1 + T x r)", "Bileşik FV = Nominal x (1 + r)^T", "Karşılaştırma tablosu = 100 x (1 + T x r) ve 100 x (1 + r)^T"],
+    variables: variables("Nominal:Başlangıç tutarı|T:Vade veya periyot sayısı|r:Dönemsel faiz oranı|FV:Vade sonu değer"),
+    inputs: [
+      input("principal", "Nominal", "10000000", "TL"),
+      input("time", "T", "5"),
+      input("rate", "r", "8.7", "%"),
+      input("compareRates", "Karşılaştırma faizleri", "5; 10; 17", "%", "text"),
+    ],
+    calc: (v) => {
+      const principal = cleanNumber(v.principal);
+      const t = cleanNumber(v.time);
+      const r = rate(v.rate);
+      const simple = principal * (1 + t * r);
+      const compound = principal * pow(1 + r, t);
+      return [result("Basit Faiz FV", money(simple)), result("Bileşik Faiz FV", money(compound)), result("Fark", money(compound - simple))];
+    },
+    detail: (v) => {
+      const periods = Math.max(1, Math.min(30, Math.round(cleanNumber(v.time) || 5) * 4));
+      const rates = smartRateList(v.compareRates).slice(0, 3);
+      while (rates.length < 3) rates.push([0.05, 0.1, 0.17][rates.length]);
+      const rows = Array.from({ length: periods }, (_, index) => {
+        const p = index + 1;
+        return [
+          p,
+          fmtNumber(100 * (1 + p * rates[0]), 4),
+          fmtNumber(100 * pow(1 + rates[0], p), 4),
+          fmtNumber(100 * (1 + p * rates[1]), 4),
+          fmtNumber(100 * pow(1 + rates[1], p), 4),
+          fmtNumber(100 * (1 + p * rates[2]), 4),
+          fmtNumber(100 * pow(1 + rates[2], p), 4),
+        ];
+      });
+      return table("Excel I karşılaştırma tablosu", "Baz değer 100", [
+        "Periyot",
+        `${plainPct(rates[0], 2)} Basit`,
+        `${plainPct(rates[0], 2)} Bileşik`,
+        `${plainPct(rates[1], 2)} Basit`,
+        `${plainPct(rates[1], 2)} Bileşik`,
+        `${plainPct(rates[2], 2)} Basit`,
+        `${plainPct(rates[2], 2)} Bileşik`,
+      ], rows);
+    },
+  },
+  "compounding-frequency": {
+    description: "Excel II sayfasındaki yıllık, 6 aylık, 3 aylık ve sürekli yenileme sonuçlarını üretir.",
+    formula: ["FV_m = Nominal x (1 + r / m)^(m x T)", "FV_sürekli = Nominal x e^(r x T)"],
+    variables: variables("Nominal:Başlangıç tutarı|T:Yıl cinsinden süre|r:Nominal yıllık faiz|m:Yıllık yenileme frekansı"),
+    inputs: [
+      input("principal", "Nominal", "1000000", "TL"),
+      input("time", "T", "6", "yıl"),
+      input("rate", "r", "6.4", "%"),
+      input("frequency", "Seçili frekans", "12", "kez/yıl"),
+    ],
+    calc: (v) => {
+      const principal = cleanNumber(v.principal);
+      const t = cleanNumber(v.time);
+      const r = rate(v.rate);
+      const selected = Math.max(1, cleanNumber(v.frequency));
+      return [
+        result("Yıllık FV", money(principal * pow(1 + r, t))),
+        result("6 Aylık FV", money(principal * pow(1 + r / 2, 2 * t))),
+        result("3 Aylık FV", money(principal * pow(1 + r / 4, 4 * t))),
+        result("Sürekli FV", money(principal * Math.exp(r * t))),
+        result("Seçili frekans FV", money(principal * pow(1 + r / selected, selected * t))),
+      ];
+    },
+    detail: (v) => {
+      const principal = cleanNumber(v.principal);
+      const t = cleanNumber(v.time);
+      const r = rate(v.rate);
+      const frequencies = [...Array.from({ length: 24 }, (_, index) => index + 1), 36, 52, 72];
+      const rows = frequencies.map((m) => [m, money(principal * pow(1 + r / m, m * t)), money(principal * Math.exp(r * t))]);
+      return table("Excel II yenileme frekansı", "Sürekli faiz limitiyle karşılaştırma", ["Yenileme Frekansı", "FV", "FV Sürekli"], rows);
+    },
+  },
+  "present-value": {
+    formula: ["PV = FV / (1 + r)^T"],
+    variables: variables("PV:Bugünkü değer|FV:Gelecek değer|T:Yıl cinsinden süre|r:Yıllık iskonto oranı"),
+    inputs: [input("future", "FV", "800000", "TL"), input("time", "T", "4", "yıl"), input("rate", "r", "7.8", "%")],
+    calc: (v) => [result("PV", money(cleanNumber(v.future) / pow(1 + rate(v.rate), cleanNumber(v.time))))],
+    detail: (v) => {
+      const fv = cleanNumber(v.future);
+      const r = rate(v.rate);
+      const t = Math.max(1, Math.round(cleanNumber(v.time)));
+      const rows = Array.from({ length: t }, (_, index) => {
+        const period = index + 1;
+        return [period, money(fv), pct(r), fmtNumber(pow(1 + r, period), 6), money(fv / pow(1 + r, period))];
+      });
+      return table("Excel III bugünkü değer tablosu", "PV = FV / (1 + r)^T", ["T", "FV", "r", "Bileşik çarpan", "PV"], rows);
+    },
+  },
+  "multi-cash-flow": {
+    description: "Excel IV sayfasındaki gibi eşit c ödemesini her dönem iskonto eder ve toplam PV üretir.",
+    formula: ["PV_t = c / (1 + r)^t", "Toplam PV = Σ PV_t"],
+    variables: variables("c:Her dönem ödeme|T:Toplam dönem sayısı|r:Dönemsel iskonto oranı|PV_t:t dönemindeki bugünkü değer"),
+    inputs: [input("cash", "c", "4000", "TL"), input("periods", "T", "3"), input("rate", "r", "10", "%")],
+    calc: (v) => {
+      const c = cleanNumber(v.cash);
+      const periods = Math.max(1, Math.round(cleanNumber(v.periods)));
+      const r = rate(v.rate);
+      const pv = sum(Array.from({ length: periods }, (_, index) => c / pow(1 + r, index + 1)));
+      return [result("Toplam PV", money(pv)), result("Dönem sayısı", fmtNumber(periods, 0))];
+    },
+    detail: (v) => {
+      const c = cleanNumber(v.cash);
+      const periods = Math.max(1, Math.min(60, Math.round(cleanNumber(v.periods))));
+      const r = rate(v.rate);
+      const rows = Array.from({ length: periods }, (_, index) => {
+        const period = index + 1;
+        return [period, money(c), fmtNumber(1 / pow(1 + r, period), 6), money(c / pow(1 + r, period))];
+      });
+      return table("Excel IV nakit akışı", "Eşit c ödemeleri", ["Periyot", "Ödeme", "DF", "PV"], rows);
+    },
+  },
+  annuity: {
+    description: "Excel V sayfasındaki annuite kapalı formuyla eşit ödeme serisinin PV değerini hesaplar.",
+    formula: ["PV = (c / r) x (1 - 1 / (1 + r)^T)"],
+    variables: variables("c:Dönemsel ödeme|T:Dönem sayısı|r:Dönemsel iskonto oranı|PV:Annuite bugünkü değeri"),
+    inputs: [input("payment", "c", "4000", "TL"), input("periods", "T", "3"), input("rate", "r", "10", "%")],
+    calc: (v) => {
+      const c = cleanNumber(v.payment);
+      const t = cleanNumber(v.periods);
+      const r = rate(v.rate);
+      return [result("PV", money(r === 0 ? c * t : (c / r) * (1 - 1 / pow(1 + r, t))))];
+    },
+    detail: (v) => ({
+      ...moduleOverrides["multi-cash-flow"].detail({ cash: v.payment, periods: v.periods, rate: v.rate }),
+      title: "Excel V annuite nakit akışı",
+      note: "Kapalı form PV ile dönem PV toplamı aynı değeri verir",
+    }),
+  },
+  perpetuity: {
+    description: "Excel VI sayfasındaki sabit perpetuity formülüyle sonsuz ödeme serisinin PV değerini hesaplar.",
+    formula: ["PV = c / r"],
+    variables: variables("c:Sonsuz devam eden dönemsel ödeme|r:Dönemsel iskonto oranı|PV:Perpetuity bugünkü değeri"),
+    inputs: [input("cash", "c", "4"), input("rate", "r", "8.33", "%")],
+    calc: (v) => [result("PV", fmtMaybeMoney(cleanNumber(v.cash) / rate(v.rate)))],
+    detail: (v) => {
+      const c = cleanNumber(v.cash);
+      const r = rate(v.rate);
+      return table("Excel VI perpetuity", "Sabit sonsuz nakit akışı", ["Kalem", "Değer"], [["c", fmtNumber(c, 6)], ["r", pct(r)], ["PV = c / r", fmtNumber(r === 0 ? 0 : c / r, 6)]]);
+    },
+  },
+  amortization: {
+    description: "Excel VII sayfasındaki konut kredisi taksit formülüyle aylık ödeme c değerini hesaplar.",
+    formula: ["c = (Kredi Tutarı x r Aylık) / (1 - 1 / (1 + r Aylık)^n)"],
+    variables: variables("Ev Değeri:Teminat veya konut değeri|Kredi Tutarı:Finanse edilen anapara|r Aylık:Aylık faiz oranı|n:Toplam ay sayısı|c:Aylık eşit ödeme"),
+    inputs: [
+      input("homeValue", "Ev Değeri", "125000", "TL"),
+      input("loan", "Kredi Tutarı", "100000", "TL"),
+      input("monthlyRate", "r Aylık", "1", "%"),
+      input("periods", "n", "360", "ay"),
+    ],
+    calc: (v) => {
+      const loan = cleanNumber(v.loan);
+      const r = rate(v.monthlyRate);
+      const n = Math.max(1, cleanNumber(v.periods));
+      const payment = r === 0 ? loan / n : (loan * r) / (1 - 1 / pow(1 + r, n));
+      return [result("c", money(payment)), result("Kredi / Ev Değeri", pct(cleanNumber(v.homeValue) === 0 ? 0 : loan / cleanNumber(v.homeValue)))];
+    },
+    detail: (v) => {
+      const loan = cleanNumber(v.loan);
+      const r = rate(v.monthlyRate);
+      const n = Math.max(1, Math.min(360, Math.round(cleanNumber(v.periods))));
+      const payment = r === 0 ? loan / n : (loan * r) / (1 - 1 / pow(1 + r, n));
+      let balance = loan;
+      const rows = Array.from({ length: Math.min(n, 24) }, (_, index) => {
+        const interest = balance * r;
+        const principal = payment - interest;
+        balance = Math.max(0, balance - principal);
+        return [index + 1, money(payment), money(interest), money(principal), money(balance)];
+      });
+      return table("Excel VII amortizasyon örneği", n > 24 ? "İlk 24 ay gösterilir" : "Tüm aylar gösterilir", ["Ay", "c", "Faiz", "Anapara", "Kalan"], rows);
+    },
+  },
+  "level-payment-loan": {
+    description: "Excel VIII sayfasındaki PMT, anapara/faiz kırılımı, interpolasyonlu faiz ve iskonto faktörüyle eşit taksitli kredi fiyatlar.",
+    formula: ["Nominal = PMT(Faiz Oranı / 12, Taksit Sayısı, -Bakiye)", "Faiz_t = Kalan Anapara_(t-1) x Faiz Oranı / 12", "Faiz eğrisi = LinearInterpolator(TRL.GOV, VKGS)", "PV_t = Nominal_t x DiscountFactor_t"],
+    variables: variables("Bakiye:Başlangıç kredi bakiyesi|Faiz Oranı:Yıllık kredi faizi|Taksit Sayısı:Aylık ödeme sayısı|VKGS:Portföy tarihinden ödeme tarihine gün|DiscountFactor:1 / (1 + eğri faizi)^VKGS yıl"),
+    inputs: [
+      input("loan", "Bakiye", "200000", "TL"),
+      input("annualRate", "Faiz Oranı", "13", "%"),
+      input("months", "Taksit Sayısı", "85"),
+      input("dayCount", "Day Count Basis", "360"),
+    ],
+    calc: (v) => {
+      const rows = levelLoanSchedule(v);
+      return [
+        result("Nominal toplam", money(sum(rows.map((row) => row.nominal)))),
+        result("Anapara toplam", money(sum(rows.map((row) => row.principal)))),
+        result("Faiz toplam", money(sum(rows.map((row) => row.interest)))),
+        result("PV toplam", money(sum(rows.map((row) => row.pv)))),
+      ];
+    },
+    detail: (v) => {
+      const rows = levelLoanSchedule(v).map((row) => [
+        row.period,
+        row.date,
+        row.days,
+        fmtNumber(row.year, 6),
+        money(row.nominal),
+        money(row.principal),
+        money(row.interest),
+        money(row.balance),
+        pct(row.curveRate),
+        fmtNumber(row.df, 6),
+        money(row.pv),
+      ]);
+      return table("Excel VIII kredi ödeme planı", "PMT + LinearInterpolator + DF", ["#", "Tarih", "VKGS", "VKGS Yıl", "Nominal", "Anapara", "Faiz", "Kalan Anapara", "Faiz", "DiscountFactor", "PV"], rows);
+    },
+  },
+});
+
+Object.assign(moduleOverrides, {
+  "continuous-compounding": {
+    detail: (v) => {
+      const pv = cleanNumber(v.present);
+      const fv = cleanNumber(v.future);
+      const t = cleanNumber(v.days) / 360;
+      const simple = t === 0 ? 0 : (fv / pv - 1) / t;
+      const compound = t === 0 ? 0 : pow(fv / pv, 1 / t) - 1;
+      const continuous = t === 0 || fv === 0 ? 0 : -Math.log(pv / fv) / t;
+      return table("Excel IX faiz dönüşümü", "Basit, bileşik ve sürekli oranlar", ["Kalem", "Formül", "Sonuç"], [
+        ["T", "gün / 360", fmtNumber(t, 8)],
+        ["Basit", "(FV / PV - 1) / T", pct(simple)],
+        ["Bileşik", "(FV / PV)^(1 / T) - 1", pct(compound)],
+        ["Sürekli", "-LN(PV / FV) / T", pct(continuous)],
+      ]);
+    },
+  },
+  "zero-coupon-bond": {
+    inputs: [
+      input("face", "Nominal", "100", "TL"),
+      input("days", "Vadeye Kalan Gün Sayısı", "364", "gün"),
+      input("yield", "Beklenen Getiri", "8.65", "%"),
+    ],
+    calc: (v) => {
+      const face = cleanNumber(v.face);
+      const days = cleanNumber(v.days);
+      const yieldRate = rate(v.yield);
+      return [result("PV", money(face / (1 + days * (yieldRate / 365))))];
+    },
+    detail: (v) => {
+      const face = cleanNumber(v.face);
+      const days = cleanNumber(v.days);
+      const yieldRate = rate(v.yield);
+      const denominator = 1 + days * (yieldRate / 365);
+      return table("Excel X kuponsuz bono", "Para piyasası tipi gün sayılı iskonto", ["Kalem", "Değer"], [
+        ["Nominal", money(face)],
+        ["Vadeye Kalan Gün Sayısı", fmtNumber(days, 0)],
+        ["Beklenen Getiri", pct(yieldRate)],
+        ["1 + VKGS x r / 365", fmtNumber(denominator, 8)],
+        ["PV", money(face / denominator)],
+      ]);
+    },
+  },
+  "cash-flow": {
+    description: "Excel XI sayfasındaki kuponlu bono nakit akışı örneğini dönem, tutar, DF ve PV kolonlarıyla gösterir.",
+    formula: ["Kupon = Anapara x Kupon Oranı / 2", "DF_t = 1 / (1 + Beklenen Getiri / 2)^t", "PV = Σ Tutar_t x DF_t"],
+    variables: variables("Anapara:Vade sonunda geri ödenecek nominal|Kupon Oranı:Yıllık kupon oranı|Kupon:Yarı yıllık kupon tutarı|DF:İskonto faktörü|PV:Bugünkü değer"),
+    inputs: [
+      input("principal", "Anapara", "100"),
+      input("couponRate", "Kupon Oranı", "12", "%"),
+      input("maturity", "Vade", "2", "yıl"),
+      input("yield", "Beklenen Getiri", "9", "%"),
+    ],
+    calc: (v) => {
+      const principal = cleanNumber(v.principal);
+      const coupon = principal * rate(v.couponRate) / 2;
+      const periods = Math.max(1, Math.round(cleanNumber(v.maturity) * 2));
+      const y = rate(v.yield);
+      const pv = sum(Array.from({ length: periods }, (_, index) => {
+        const period = index + 1;
+        const amount = period === periods ? coupon + principal : coupon;
+        return amount / pow(1 + y / 2, period);
+      }));
+      return [result("Kupon", money(coupon)), result("PV", money(pv)), result("Ödeme sayısı", fmtNumber(periods, 0))];
+    },
+    detail: (v) => {
+      const principal = cleanNumber(v.principal);
+      const coupon = principal * rate(v.couponRate) / 2;
+      const periods = Math.max(1, Math.min(80, Math.round(cleanNumber(v.maturity) * 2)));
+      const y = rate(v.yield);
+      const rows = Array.from({ length: periods }, (_, index) => {
+        const period = index + 1;
+        const amount = period === periods ? coupon + principal : coupon;
+        const df = 1 / pow(1 + y / 2, period);
+        return [period, money(amount), fmtNumber(df, 6), money(amount * df)];
+      });
+      return table("Excel XI Cash Flow", "Yarı yıllık kupon akışı", ["Dönem", "Tutar", "DF", "PV"], rows);
+    },
+  },
+  "coupon-bond": {
+    description: "Excel XII sayfasındaki kupon tarihleri, VKGS, verim eğrisi interpolasyonu, DF ve PV kolonlarıyla kuponlu bono fiyatlar.",
+    formula: ["Dönemlik Kupon = Nominal x Kupon Oranı / 2", "Faiz Oranı = LinearInterpolator(Verim Eğrisi, VKGS)", "DF = 1 / (1 + Faiz Oranı)^(VKGS / DCB)", "Kirli Fiyat = Σ PV; Temiz Fiyat = Kirli Fiyat - TF"],
+    variables: variables("VKGS:Vadeye kalan gün sayısı|DCB:Day count basis|TF:İşlemiş faiz düzeltmesi|DF:İskonto faktörü"),
+    inputs: [
+      input("face", "Nominal", "100", "TL"),
+      input("coupon", "Kupon Oranı", "8.3", "%"),
+      input("days", "VKGS listesi", "140; 322; 504; 686", "gün", "text"),
+      input("dayCount", "DCB", "365"),
+    ],
+    calc: (v) => {
+      const face = cleanNumber(v.face);
+      const coupon = face * rate(v.coupon) / 2;
+      const days = list(v.days);
+      const dcb = cleanNumber(v.dayCount) || 365;
+      const dirty = sum(days.map((day, index) => {
+        const amount = index === days.length - 1 ? coupon + face : coupon;
+        const curveRate = linearInterpolate(day, couponBondCurve.days, couponBondCurve.rates);
+        return amount / pow(1 + curveRate, day / dcb);
+      }));
+      const accruedAdjustment = days[0] ? (1 - days[0] / 182) * coupon : 0;
+      return [result("Kirli fiyat", money(dirty)), result("TF", money(accruedAdjustment)), result("Temiz fiyat", money(dirty - accruedAdjustment))];
+    },
+    detail: (v) => {
+      const face = cleanNumber(v.face);
+      const coupon = face * rate(v.coupon) / 2;
+      const days = list(v.days);
+      const dcb = cleanNumber(v.dayCount) || 365;
+      const rows = days.map((day, index) => {
+        const amount = index === days.length - 1 ? coupon + face : coupon;
+        const curveRate = linearInterpolate(day, couponBondCurve.days, couponBondCurve.rates);
+        const df = 1 / pow(1 + curveRate, day / dcb);
+        return [index + 1, day, fmtNumber(day / dcb, 6), money(amount), pct(curveRate), fmtNumber(df, 6), money(amount * df)];
+      });
+      return table("Excel XII bono fiyatı", "Verim eğrisi LinearInterpolator ile okunur", ["Kupon Dönemi", "VKGS", "VKGS Yıl", "Tutar", "Faiz Oranı", "DF", "PV"], rows);
+    },
+  },
+  "forward-rate": {
+    inputs: [
+      input("spot1", "Bir Yıllık Spot", "8.509", "%"),
+      input("t1", "T1", "1", "yıl"),
+      input("spot2", "İki Yıllık Spot", "8.577", "%"),
+      input("t2", "T2", "2", "yıl"),
+    ],
+    detail: (v) => {
+      const spotCurve = [0.08509, 0.08577, 0.08628, 0.08678, 0.08731, 0.087615, 0.08792, 0.08845, 0.08879, 0.08918];
+      const rows = spotCurve.map((spot, index) => {
+        const tenor = index + 1;
+        const base = spotCurve[0];
+        const forward = tenor === 1 ? base : pow(pow(1 + spot, tenor) / (1 + base), 1 / (tenor - 1)) - 1;
+        return [tenor, pct(spot), pct(forward)];
+      });
+      const f11 = rateForward(rate(v.spot1), cleanNumber(v.t1), rate(v.spot2), cleanNumber(v.t2), cleanNumber(v.t2) - cleanNumber(v.t1));
+      rows.unshift(["f1,1", `${pct(rate(v.spot1))} -> ${pct(rate(v.spot2))}`, pct(f11)]);
+      return table("Excel XIII forward curve", "TRL GOV spot verim eğrisi", ["Tenor", "Spot Verim Eğrisi", "Forward Verim Eğrisi"], rows);
+    },
+  },
+  "forward-rate-contract": {
+    inputs: [
+      input("notional", "Nominal", "1000000", "TL"),
+      input("fixed", "Sabit Ödeme", "8.5", "%"),
+      input("r1", "LIBOR T1", "8.434", "%"),
+      input("t1", "T1", "1", "yıl"),
+      input("r2", "LIBOR T2", "8.8", "%"),
+      input("t2", "T2", "2", "yıl"),
+      input("discount", "r2 iskonto", "0", "%"),
+    ],
+    detail: (v) => {
+      const t1 = cleanNumber(v.t1);
+      const t2 = cleanNumber(v.t2);
+      const r1 = rate(v.r1);
+      const r2 = rate(v.r2);
+      const forward = pow(1 + r2, t2) / pow(1 + r1, t1) - 1;
+      const tau = t2 - t1;
+      const p = cleanNumber(v.notional) * (forward - rate(v.fixed)) * tau * Math.exp(-rate(v.discount) * t2);
+      return table("Excel XIV forward rate sözleşmesi", "Sabit ve değişken ödeme farkı", ["Kalem", "Değer"], [
+        ["Sabit Ödeme", pct(rate(v.fixed))],
+        ["Değişken Ödeme", pct(forward)],
+        ["τ", fmtNumber(tau, 6)],
+        ["P", money(p)],
+      ]);
+    },
+  },
+  "floating-rate-note": {
+    description: "Excel XV sayfasındaki değişken faizli bonoda forward m,n, spread, zero r, DF ve PV kolonlarını üretir.",
+    formula: ["Forward m,n = (((1 + yn+m)^(n+m)) / ((1 + ym)^m))^(1/n) - 1", "Faiz = Nominal x ((Forward m,n + Spread) / 4)", "DF = 1 / (1 + zero r)^m", "PV = (Faiz + Nominal) x DF"],
+    variables: variables("m:Değerleme tarihinden kupon tarihine yıl|n:Kupon dönemi uzunluğu|ym:m vadesindeki eğri faizi|yn+m:n+m vadesindeki eğri faizi|zero r:İskonto eğrisi oranı"),
+    inputs: [
+      input("face", "Nominal", "1000000", "TL"),
+      input("coupon", "Kupon", "8.25", "%"),
+      input("spread", "Spread", "1", "%"),
+      input("days", "VKGS listesi", "50; 141; 232; 323; 414", "gün", "text"),
+      input("period", "n", "0.25", "yıl"),
+    ],
+    calc: (v) => {
+      const days = list(v.days);
+      const ym = [0.0772866667, 0.081566, 0.0827793333, 0.0838754444, 0.084889];
+      const ynm = [0.08155, 0.082768, 0.0838628889, 0.0848788333, 0.085804];
+      const zero = [0.0859333333, 0.08563, 0.0865111111, 0.0882805556, 0.089075];
+      const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face) });
+      const tf = cleanNumber(v.face) * ((rate(v.coupon) + rate(v.spread)) / 4) * (41 / 91);
+      const pv = sum(rows.map((row) => row.pv));
+      return [result("PV", money(pv)), result("TF", money(tf)), result("CP", money(pv - tf))];
+    },
+    detail: (v) => {
+      const days = list(v.days);
+      const ym = [0.0772866667, 0.081566, 0.0827793333, 0.0838754444, 0.084889];
+      const ynm = [0.08155, 0.082768, 0.0838628889, 0.0848788333, 0.085804];
+      const zero = [0.0859333333, 0.08563, 0.0865111111, 0.0882805556, 0.089075];
+      const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face) }).map((row) => [
+        row.period,
+        row.day,
+        fmtNumber(row.m, 6),
+        fmtNumber(row.n, 4),
+        fmtNumber(row.longTime, 6),
+        pct(row.ym),
+        pct(row.ynm),
+        pct(row.forward),
+        money(row.interest),
+        money(row.redemption),
+        pct(row.zero),
+        fmtNumber(row.df, 6),
+        money(row.pv),
+      ]);
+      return table("Excel XV değişken faizli bono", "Forward m,n + spread ile kupon tahmini", ["#", "VKGS", "m", "n", "n+m", "ym", "yn+m", "Forward m,n", "Faiz", "Nominal", "zero r", "DF", "PV"], rows);
+    },
+  },
+  spread: {
+    description: "Excel XVI sayfasındaki Spread, G-Spread, I-Spread ve Z-Spread kavramlarını aynı terminolojiyle özetler.",
+    formula: ["Spread = (Riskli Verim - ABD 10Y Gösterge) x 10000", "G-Spread = Riskli Verim - hazine interpolasyonu", "I-Spread = Riskli Verim - swap eğrisi interpolasyonu", "Z-Spread = fiyatı eşitleyen sabit iskonto spreadi"],
+    inputs: [
+      input("treasuryYield", "Hazine EBond Verim", "5.025413", "%"),
+      input("corporateYield", "Arçelik EBond Verim", "6.459853", "%"),
+      input("benchmarkYield", "ABD 10 Yıllık Gösterge", "2.71304", "%"),
+      input("zSpread", "Z-Spread", "246.06229", "bp"),
+    ],
+    calc: (v) => {
+      const benchmark = rate(v.benchmarkYield);
+      const treasury = rate(v.treasuryYield);
+      const corporate = rate(v.corporateYield);
+      return [
+        result("Hazine Spread", bp(treasury - benchmark)),
+        result("Arçelik Spread", bp(corporate - benchmark)),
+        result("Z-Spread", `${fmtNumber(cleanNumber(v.zSpread), 4)} bp`),
+      ];
+    },
+    detail: (v) => table("Excel XVI spread özeti", "US900123CA66 örneği", ["Enstrüman", "Verim", "Benchmark", "Spread"], [
+      ["Hazine EBond", pct(rate(v.treasuryYield)), pct(rate(v.benchmarkYield)), bp(rate(v.treasuryYield) - rate(v.benchmarkYield))],
+      ["Arçelik EBond", pct(rate(v.corporateYield)), pct(rate(v.benchmarkYield)), bp(rate(v.corporateYield) - rate(v.benchmarkYield))],
+      ["Z-Spread", "-", "-", `${fmtNumber(cleanNumber(v.zSpread), 4)} bp`],
+    ]),
+  },
+  "corporate-zero": {
+    detail: (v) => {
+      const face = cleanNumber(v.face);
+      const cases = [
+        ["1 Yıl", cleanNumber(v.days), rate(v.yieldA), rate(v.yieldBBB)],
+        ["10 Yıl", 3652, 0.037478, 0.048745],
+      ];
+      const rows = cases.map(([label, days, yA, yBBB]) => {
+        const priceA = face / (1 + days * (yA / 365));
+        const priceBBB = face / (1 + days * (yBBB / 365));
+        return [label, days, pct(yA), money(priceA), pct(yBBB), money(priceBBB), pct(priceA / priceBBB - 1)];
+      });
+      return table("Excel XVII rating farkı", "Industrial A / Industrial BBB-", ["Vade", "VKGS", "A Verim", "A PV", "BBB- Verim", "BBB- PV", "Spread Etkisi"], rows);
+    },
+  },
+  "corporate-floating": {
+    description: "Excel XVIII sayfasındaki Değişken Faizli Şirket Bonosu modelinde 2Y IECM + spread, z discount margin ve aylık kupon akışıyla fiyat hesaplar.",
+    formula: ["Forward m,n = (((1 + yn+m)^(n+m)) / ((1 + ym)^m))^(1/n) - 1", "DF = 1 / (1 + zero r + z)^m", "PV = Σ (Faiz + Nominal) x DF", "CP = PV - TF"],
+    variables: variables("z:Discount Margin|m:Değerleme tarihinden kupon tarihine yıl|n:Referans vade|TF:Tahakkuk faizi|CP:Clean price"),
+    inputs: [
+      input("face", "Nominal", "100"),
+      input("coupon", "Kupon", "8.48", "%"),
+      input("spread", "Spread", "1.1", "%"),
+      input("discountMargin", "Discount Margin (z)", "1.2155301486", "%"),
+      input("period", "n", "2", "yıl"),
+    ],
+    calc: (v) => {
+      const days = [12, 43, 74, 105, 136, 167, 198, 229, 260, 291, 322, 353, 384, 415];
+      const ym = [0.0538533333, 0.0596744444, 0.0654955556, 0.0713166667, 0.0771377778, 0.0829588889, 0.08521, 0.0848827778, 0.0845555556, 0.0842283333, 0.0839011111, 0.0835738889, 0.0836666667, 0.0838819444];
+      const ynm = [0.0859266667, 0.0857372222, 0.0855477778, 0.0853583333, 0.0851688889, 0.0849794444, 0.08479, 0.0846005556, 0.0844111111, 0.0842216667, 0.0840322222, 0.0838427778, 0.0841266667, 0.0845486111];
+      const zero = days.map((day) => linearInterpolate(day / 360, [0, 1, 2], [0.08441, 0.08509, 0.08519]));
+      const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face), discountSpread: rate(v.discountMargin) });
+      const pv = sum(rows.map((row) => row.pv));
+      const tf = cleanNumber(v.face) * ((rate(v.coupon) + rate(v.spread)) / 12) * (19 / 31);
+      return [result("PV", money(pv)), result("TF", money(tf)), result("CP", money(pv - tf))];
+    },
+    detail: (v) => {
+      const days = [12, 43, 74, 105, 136, 167, 198, 229, 260, 291, 322, 353, 384, 415];
+      const ym = [0.0538533333, 0.0596744444, 0.0654955556, 0.0713166667, 0.0771377778, 0.0829588889, 0.08521, 0.0848827778, 0.0845555556, 0.0842283333, 0.0839011111, 0.0835738889, 0.0836666667, 0.0838819444];
+      const ynm = [0.0859266667, 0.0857372222, 0.0855477778, 0.0853583333, 0.0851688889, 0.0849794444, 0.08479, 0.0846005556, 0.0844111111, 0.0842216667, 0.0840322222, 0.0838427778, 0.0841266667, 0.0845486111];
+      const zero = days.map((day) => linearInterpolate(day / 360, [0, 1, 2], [0.08441, 0.08509, 0.08519]));
+      const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face), discountSpread: rate(v.discountMargin) }).map((row) => [
+        row.period,
+        row.day,
+        fmtNumber(row.m, 6),
+        fmtNumber(row.n, 4),
+        pct(row.forward),
+        money(row.interest),
+        money(row.redemption),
+        pct(row.zero + rate(v.discountMargin)),
+        fmtNumber(row.df, 6),
+        money(row.pv),
+      ]);
+      return table("Excel XVIII şirket FRN", "z discount margin dahil", ["#", "VKGS", "m", "n", "Forward m,n", "Faiz", "Nominal", "zero r + z", "DF", "PV"], rows);
+    },
+  },
+});
+
+Object.assign(moduleOverrides, {
+  swap: {
+    description: "Excel XIX sayfasındaki sabit ödeme alıcısı ve değişken ödeme bacaklarını ayrı ayrı iskonto eder.",
+    formula: ["Fiyat = PV_Sabit Bacak - PV_Değişken Bacak", "Sabit ödeme = Nominal x Kupon x τ", "Forward Rate = (1 - DF_t / DF_t-1) / ((DF_t / DF_t-1) x τ)", "PV = Ödeme x İskonto Faktörü"],
+    variables: variables("τ:İki ödeme tarihi arasındaki yıl fraksiyonu|DF:İskonto faktörü|Forward Rate:Değişken bacak kupon oranı|PV:Bacak nakit akışının bugünkü değeri"),
+    inputs: [input("notional", "Nominal", "10000000", "TL"), input("fixed", "Kupon", "8.540364", "%")],
+    calc: (v) => {
+      const notional = cleanNumber(v.notional);
+      const fixed = fixedSwapRows(notional, rate(v.fixed));
+      const floating = floatingSwapRows(notional);
+      const fixedPv = sum(fixed.map((row) => row.pv));
+      const floatingPv = sum(floating.map((row) => row.pv));
+      return [result("Sabit bacak PV", money(fixedPv)), result("Değişken bacak PV", money(floatingPv)), result("Fiyat", money(fixedPv - floatingPv))];
+    },
+    detail: (v) => {
+      const notional = cleanNumber(v.notional);
+      const fixed = fixedSwapRows(notional, rate(v.fixed)).map((row) => [
+        "Sabit",
+        row.label,
+        row.days,
+        fmtNumber(row.year, 6),
+        fmtNumber(row.tau, 6),
+        pct(row.rate),
+        "",
+        money(row.payment),
+        fmtNumber(row.df, 6),
+        money(row.pv),
+      ]);
+      const floating = floatingSwapRows(notional).map((row) => [
+        "Değişken",
+        row.period,
+        row.day,
+        fmtNumber(row.year, 6),
+        fmtNumber(row.tau, 6),
+        pct(row.rate),
+        row.period === 1 ? "" : pct(row.forward),
+        money(row.payment),
+        fmtNumber(row.df, 6),
+        money(row.pv),
+      ]);
+      return table("Excel XIX swap bacakları", "Sabit ödeme alıcısı / değişken ödeme", ["Bacak", "#", "VKGS", "VKGS Yıl", "τ", "Faiz Oranı", "Forward Rate", "Ödeme", "İskonto Faktörü", "PV"], [...fixed, ...floating]);
+    },
+  },
+  "linear-interpolation": {
+    inputs: [input("x", "Aranan gün", "190", "gün")],
+    calc: (v) => {
+      const x = cleanNumber(v.x);
+      return [result("Lineer interpolasyon", `${fmtNumber(linearInterpolate(x, interpolationCurve.days, interpolationCurve.yields), 6)}%`)];
+    },
+    detail: (v) => {
+      const x = cleanNumber(v.x);
+      const index = Math.max(0, Math.min(interpolationCurve.days.length - 2, interpolationCurve.days.findIndex((day) => day >= x) - 1));
+      const left = interpolationCurve.days[index] <= x ? index : Math.max(0, index - 1);
+      const right = Math.min(interpolationCurve.days.length - 1, left + 1);
+      const y = linearInterpolate(x, interpolationCurve.days, interpolationCurve.yields);
+      return table("Excel XX lineer interpolasyon", "FORECAST/INDEX yaklaşımıyla aynı doğrusal oran", ["Nokta", "Gün", "Faiz"], [
+        ["Alt nokta", interpolationCurve.days[left], `${fmtNumber(interpolationCurve.yields[left], 6)}%`],
+        ["Aranan gün", x, `${fmtNumber(y, 6)}%`],
+        ["Üst nokta", interpolationCurve.days[right], `${fmtNumber(interpolationCurve.yields[right], 6)}%`],
+      ]);
+    },
+  },
+  swaption: {
+    inputs: [
+      input("notional", "Nominal", "10000000", "TL"),
+      input("annuity", "Swap annuite faktörü", "1.7831273176"),
+      input("forward", "Forward Swap Rate", "8.5403636199", "%"),
+      input("strike", "Swaption Oranı", "8.540364", "%"),
+      input("vol", "Forward Rate σ", "25", "%"),
+      input("time", "YTM", "0.0916666667", "yıl"),
+    ],
+    calc: (v) => {
+      const n = cleanNumber(v.notional);
+      const a = cleanNumber(v.annuity);
+      const f = rate(v.forward);
+      const k = rate(v.strike);
+      const sigma = rate(v.vol);
+      const t = cleanNumber(v.time);
+      const denom = sigma * Math.sqrt(Math.max(t, 0.0001));
+      const d1 = denom === 0 ? 0 : (Math.log(f / k) + sigma ** 2 * (t / 2)) / denom;
+      const d2 = d1 - denom;
+      const payer = n * a * (f * normCdf(d1) - k * normCdf(d2));
+      const receiver = n * a * (k * normCdf(-d2) - f * normCdf(-d1));
+      return [result("Payer hesaplaması", money(payer)), result("Receiver hesaplaması", money(receiver)), result("d1 / d2", `${fmtNumber(d1, 6)} / ${fmtNumber(d2, 6)}`)];
+    },
+    detail: (v) => {
+      const n = cleanNumber(v.notional);
+      const a = cleanNumber(v.annuity);
+      const f = rate(v.forward);
+      const k = rate(v.strike);
+      const sigma = rate(v.vol);
+      const t = cleanNumber(v.time);
+      const denom = sigma * Math.sqrt(Math.max(t, 0.0001));
+      const d1 = denom === 0 ? 0 : (Math.log(f / k) + sigma ** 2 * (t / 2)) / denom;
+      const d2 = d1 - denom;
+      const payerConstant = f * normCdf(d1) - k * normCdf(d2);
+      const receiverConstant = k * normCdf(-d2) - f * normCdf(-d1);
+      return table("Excel XXI Black-76 swaption", "Forward swap rate üzerinden payer/receiver", ["Kalem", "Değer"], [
+        ["Forward Swap Rate", pct(f)],
+        ["Swaption Rate", pct(k)],
+        ["YTM", fmtNumber(t, 8)],
+        ["d1", fmtNumber(d1, 8)],
+        ["d2", fmtNumber(d2, 8)],
+        ["Payer Constant", fmtNumber(payerConstant, 10)],
+        ["Receiver Constant", fmtNumber(receiverConstant, 10)],
+        ["Payer Hesaplaması", money(n * a * payerConstant)],
+        ["Receiver Hesaplaması", money(n * a * receiverConstant)],
+      ]);
+    },
+  },
+  "macaulay-duration": {
+    inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "6", "%"), input("maturity", "Vade", "5", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "6", "%")],
+    calc: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      return [result("Macaulay D", `${fmtNumber(metrics.macaulay, 6)} yıl`), result("Fiyat", money(metrics.price))];
+    },
+    detail: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const rows = metrics.rows.map((row) => [row.period, money(row.cashFlow), money(row.pv), fmtNumber(row.weighted, 6)]);
+      rows.push(["Toplam", "", money(metrics.price), fmtNumber(metrics.weighted, 6)]);
+      return table("Excel XXII Macaulay Durasyonu", "PV x t ağırlıklı vade", ["Periyot", "Kupon", "PV", "PV x t"], rows);
+    },
+  },
+  "modified-duration": {
+    description: "Excel XXIII sayfasındaki bono fiyatı üzerinden Macaulay D, Modifiye D ve faiz artışı sonrası fiyat etkisini hesaplar.",
+    formula: ["Macaulay D = Σ(PV x t) / (Ödeme Sıklığı x Fiyat)", "Modifiye D = Macaulay D / (1 + İç Verim Oranı / 2)", "Bono Fiyatındaki Değişim = -Modifiye D x Faiz Artış Oranı"],
+    inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "9.875", "%"), input("maturity", "Vade", "7", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "8.28", "%"), input("shock", "Faiz Artış Oranı", "1", "%")],
+    calc: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const impact = -metrics.modified * rate(v.shock);
+      return [result("Macaulay D", fmtNumber(metrics.macaulay, 6)), result("Modifiye D", fmtNumber(metrics.modified, 6)), result("Bono fiyatı", money(metrics.price)), result("Faiz artışı sonrası fiyat", money(metrics.price * (1 + impact)))];
+    },
+    detail: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      return table("Excel XXIII durasyon ve fiyat", "Nakit akışı tablosu", ["Periyot", "Kupon", "PV", "PV x t"], metrics.rows.map((row) => [row.period, money(row.cashFlow), money(row.pv), fmtNumber(row.weighted, 6)]));
+    },
+  },
+  "portfolio-duration": {
+    inputs: [
+      input("marketValues", "Piyasa Değeri", "23731; 20000; 14667; 5271", "TL", "text"),
+      input("durations", "Modifiye Durasyon", "2.59; 3.86; 4.47; 5.32", "", "text"),
+      input("shock", "Faiz Artış Oranı", "1", "%"),
+    ],
+    calc: (v) => {
+      const values = list(v.marketValues);
+      const durations = list(v.durations);
+      const total = sum(values);
+      const duration = sum(values.map((item, index) => (total === 0 ? 0 : (item / total) * (durations[index] || 0))));
+      const impact = -duration * rate(v.shock);
+      return [result("Portföy değeri", money(total)), result("Portföy durasyonu", fmtNumber(duration, 6)), result("Faiz artışı sonrası portföy değeri", money(total * (1 + impact)))];
+    },
+    detail: (v) => {
+      const values = list(v.marketValues);
+      const durations = list(v.durations);
+      const total = sum(values);
+      const rows = values.map((value, index) => [index + 1, money(value), pct(total === 0 ? 0 : value / total), fmtNumber(durations[index] || 0, 6), fmtNumber((total === 0 ? 0 : value / total) * (durations[index] || 0), 6)]);
+      return table("Excel XXIV portföy durasyonu", "SUMPRODUCT(K, ağırlık)", ["Bono", "Piyasa Değeri", "Ağırlık", "Modifiye Durasyon", "Katkı"], rows);
+    },
+  },
+  convexity: {
+    inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "6", "%"), input("maturity", "Vade", "5", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "6", "%")],
+    calc: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      return [result("Macaulay D", fmtNumber(metrics.macaulay, 6)), result("Modifiye D", fmtNumber(metrics.modified, 6)), result("Konveksite", fmtNumber(metrics.convex, 6)), result("Fiyat", money(metrics.price))];
+    },
+    detail: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const shocks = [-500, -100, -50, -10, -5, -1, 1, 5, 10, 50, 100, 200, 500];
+      const rows = shocks.map((shock) => {
+        const dr = shock / 10000;
+        const durationPart = -100 * metrics.modified * dr;
+        const convexPart = 0.5 * 100 * metrics.convex * dr ** 2;
+        return [shock, `${fmtNumber(durationPart, 6)}%`, `${fmtNumber(durationPart + convexPart, 6)}%`, `${fmtNumber(convexPart, 6)}%`];
+      });
+      return table("Excel XXV konveksite şok tablosu", "Durasyon + konveksite yaklaşımı", ["Faiz Değişimi (bps)", "Durasyon%", "D + Konveksite", "Konveksite Farkı"], rows);
+    },
+  },
+  "price-impact": {
+    description: "Excel XXVI sayfasındaki 7 yıllık bono için durasyon ve konveksite ile fiyat etkisini hesaplar.",
+    inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "9.875", "%"), input("maturity", "Vade", "7", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "8.28", "%"), input("shock", "Faiz Artış Oranı", "5", "%")],
+    calc: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const dr = rate(v.shock);
+      const pctChange = -metrics.modified * dr + 0.5 * metrics.convex * dr ** 2;
+      return [result("Modifiye D", fmtNumber(metrics.modified, 6)), result("Konveksite", fmtNumber(metrics.convex, 6)), result("Toplam değişim", pct(pctChange)), result("Yeni fiyat", money(metrics.price * (1 + pctChange)))];
+    },
+    detail: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      return table("Excel XXVI fiyat etkisi", "Nakit akışı ve konveksite ham toplamı", ["Kalem", "Değer"], [
+        ["Fiyat", money(metrics.price)],
+        ["Macaulay D", fmtNumber(metrics.macaulay, 6)],
+        ["Modifiye D", fmtNumber(metrics.modified, 6)],
+        ["Konveksite", fmtNumber(metrics.convex, 6)],
+        ["Faiz Artış Oranı", pct(rate(v.shock))],
+      ]);
+    },
+  },
+  "bond-price-convergence": {
+    description: "Excel XXVII sayfasındaki fiyat-faiz yakınsama şok tablosunu üretir.",
+    inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "6", "%"), input("maturity", "Vade", "5", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "6", "%"), input("increment", "Increment", "0.3", "%")],
+    calc: (v) => {
+      const metrics = excelBondMetrics(cleanNumber(v.face), rate(v.coupon), rate(v.yield), cleanNumber(v.maturity), cleanNumber(v.frequency));
+      const up = rate(v.yield) + rate(v.increment);
+      const down = rate(v.yield) - rate(v.increment);
+      return [result("Fiyat", money(metrics.price)), result("Düşük faiz fiyatı", money(bondPrice(cleanNumber(v.face), rate(v.coupon), down, cleanNumber(v.maturity), cleanNumber(v.frequency)))), result("Yüksek faiz fiyatı", money(bondPrice(cleanNumber(v.face), rate(v.coupon), up, cleanNumber(v.maturity), cleanNumber(v.frequency))))];
+    },
+    detail: (v) => {
+      const face = cleanNumber(v.face);
+      const coupon = rate(v.coupon);
+      const maturity = cleanNumber(v.maturity);
+      const frequency = cleanNumber(v.frequency);
+      const baseYield = rate(v.yield);
+      const inc = rate(v.increment);
+      const base = bondPrice(face, coupon, baseYield, maturity, frequency);
+      const rows = Array.from({ length: 21 }, (_, index) => {
+        const y = baseYield + (index - 10) * inc;
+        const price = bondPrice(face, coupon, y, maturity, frequency);
+        return [fmtNumber((y - baseYield) * 10000, 0), pct(y), money(price), pct(price / base - 1)];
+      });
+      return table("Excel XXVII bono fiyatı yakınsaması", "Increment ile faiz-fiyat tablosu", ["Faiz Değişimi (bps)", "Faiz Oranı", "Fiyat", "% Fiyat"], rows);
+    },
+  },
+  "effective-duration-convexity": {
+    inputs: [input("face", "Nominal", "100"), input("coupon", "Kupon Oranı", "9.875", "%"), input("maturity", "Vade", "7", "yıl"), input("frequency", "Ödeme Sıklığı", "2"), input("yield", "İç Verim Oranı", "8.28", "%"), input("shock", "Şok", "0.5", "%")],
+    calc: (v) => {
+      const face = cleanNumber(v.face);
+      const coupon = rate(v.coupon);
+      const maturity = cleanNumber(v.maturity);
+      const frequency = cleanNumber(v.frequency);
+      const y = rate(v.yield);
+      const dy = rate(v.shock);
+      const p0 = bondPrice(face, coupon, y, maturity, frequency);
+      const pDown = bondPrice(face, coupon, y - dy, maturity, frequency);
+      const pUp = bondPrice(face, coupon, y + dy, maturity, frequency);
+      const d = (pDown - pUp) / (2 * p0 * dy);
+      const c = (pDown + pUp - 2 * p0) / (p0 * dy ** 2);
+      return [result("Efektif Durasyon", fmtNumber(d, 6)), result("Efektif Konveksite", fmtNumber(c, 6)), result("P(0)", money(p0)), result("P(-) / P(+)", `${money(pDown)} / ${money(pUp)}`)];
+    },
+    detail: (v) => {
+      const face = cleanNumber(v.face);
+      const coupon = rate(v.coupon);
+      const maturity = cleanNumber(v.maturity);
+      const frequency = cleanNumber(v.frequency);
+      const y = rate(v.yield);
+      const dy = rate(v.shock);
+      const p0 = bondPrice(face, coupon, y, maturity, frequency);
+      const pDown = bondPrice(face, coupon, y - dy, maturity, frequency);
+      const pUp = bondPrice(face, coupon, y + dy, maturity, frequency);
+      return table("Excel XXVIII efektif ölçüler", "P(-), P(0), P(+) ile hesap", ["Kalem", "Değer"], [
+        ["P(0)", money(p0)],
+        ["P(-)", money(pDown)],
+        ["P(+)", money(pUp)],
+        ["Efektif Durasyon", fmtNumber((pDown - pUp) / (2 * p0 * dy), 6)],
+        ["Efektif Konveksite", fmtNumber((pDown + pUp - 2 * p0) / (p0 * dy ** 2), 6)],
+      ]);
+    },
+  },
+  "interest-price": {
+    description: "Excel XXIX sayfasındaki FİYAT, YÜZDESEL FİYAT DEĞİŞİMİ ve bir baz puanın fiyat değeri tablosunu oluşturur.",
+    formula: ["Fiyat = c x ((1 - 1/(1+y/2)^n)/(y/2)) + 100/(1+y/2)^n", "% Değişim = (Yeni Fiyat - Baz Fiyat) / Baz Fiyat", "DV01 = ortalama bir baz puan fiyat farkı"],
+    inputs: [input("rates", "Faiz satırları", "4; 5; 5.5; 5.9; 5.99; 6; 6.01; 6.1; 6.5; 7; 8", "%", "text")],
+    calc: (v) => {
+      const rates = smartRateList(v.rates);
+      const base = 0.06;
+      const price6y5 = bondPrice(100, 0.06, base, 5, 2);
+      const price6y20 = bondPrice(100, 0.06, base, 20, 2);
+      const near = rates.includes(base) ? base : rates[Math.floor(rates.length / 2)] || base;
+      return [result("6% / 5yıl baz fiyat", money(price6y5)), result("6% / 20yıl baz fiyat", money(price6y20)), result("Seçili baz faiz", pct(near))];
+    },
+    detail: (v) => {
+      const rates = smartRateList(v.rates);
+      const cases = [
+        ["6% / 5yıl", 0.06, 5],
+        ["6% / 20yıl", 0.06, 20],
+        ["9% / 5yıl", 0.09, 5],
+        ["9% / 20yıl", 0.09, 20],
+      ];
+      const basePrices = cases.map(([, coupon, maturity]) => bondPrice(100, coupon, 0.06, maturity, 2));
+      const rows = rates.map((r) => [
+        pct(r),
+        ...cases.map(([, coupon, maturity]) => money(bondPrice(100, coupon, r, maturity, 2))),
+        ...cases.map(([, coupon, maturity], index) => pct(bondPrice(100, coupon, r, maturity, 2) / basePrices[index] - 1)),
+      ]);
+      return table("Excel XXIX faiz & fiyat", "Fiyat ve yüzdesel değişim matrisi", ["Faiz", ...cases.map(([name]) => name), ...cases.map(([name]) => `% ${name}`)], rows);
+    },
+  },
+});
+
+Object.assign(moduleOverrides, {
+  "parametric-var-position": {
+    description: "Excel XXX sayfasındaki tek bono pozisyonu için fiyat, PV, volatilite, ALFA ve sermaye gereksinimi hesaplar.",
+    formula: ["Fiyat = Nominal / (1 + Faiz oranı x VKGS / 365)", "PV = Fiyat x Bono Adeti", "ALFA = ROUNDUP(NORMINV(Güven Aralığı), 2)", "VaR(1 Gün) = ALFA x Fiyat x Volatilite x Bono Adeti", "VaR(10 Gün) = VaR(1 Gün) x SQRT(10)", "Sermaye Gereksinimi = k x VaR(10 Gün)"],
+    variables: variables("VKGS:Vadeye kalan gün sayısı|ALFA:Normal dağılım güven katsayısı|k:Sermaye çarpanı|Volatilite:Seçilen tarihsel pencerenin standart sapması"),
+    inputs: [
+      input("nominal", "Nominal", "100000", "TL"),
+      input("days", "VKGS", "185", "gün"),
+      input("rate", "Faiz oranı", "8.220718952762017", "%"),
+      input("bonds", "Bono Adeti", "100"),
+      input("confidence", "GÜVEN ARALIĞI", "99", "%"),
+      input("vol", "Volatilite", "0.165156351882198", "%"),
+      input("k", "k", "3"),
+    ],
+    calc: (v) => {
+      const price = cleanNumber(v.nominal) / (1 + rate(v.rate) * cleanNumber(v.days) / 365);
+      const pv = price * cleanNumber(v.bonds);
+      const alpha = roundUp2(normInv(rate(v.confidence)));
+      const var1 = alpha * price * rate(v.vol) * cleanNumber(v.bonds);
+      const var10 = var1 * Math.sqrt(10);
+      return [result("Fiyat", money(price)), result("PV", money(pv)), result("ALFA", fmtNumber(alpha, 2)), result("VaR (1 Gün)", money(var1)), result("Sermaye Gereksinimi", money(cleanNumber(v.k) * var10))];
+    },
+    detail: (v) => {
+      const price = cleanNumber(v.nominal) / (1 + rate(v.rate) * cleanNumber(v.days) / 365);
+      const pv = price * cleanNumber(v.bonds);
+      const alpha = roundUp2(normInv(rate(v.confidence)));
+      const var1 = alpha * price * rate(v.vol) * cleanNumber(v.bonds);
+      const var10 = var1 * Math.sqrt(10);
+      return table("Excel XXX Parametrik VaR-Pozisyon", "Mayıs 2013 sonrası varsayılan volatiliteyle", ["Kalem", "Değer"], [
+        ["Fiyat", money(price)],
+        ["PV", money(pv)],
+        ["Volatilite", pct(rate(v.vol))],
+        ["ALFA", fmtNumber(alpha, 2)],
+        ["VaR (1 Gün)", money(var1)],
+        ["VaR / PV", pct(var1 / pv)],
+        ["VaR (10 Gün)", money(var10)],
+        ["Sermaye Gereksinimi", money(cleanNumber(v.k) * var10)],
+      ]);
+    },
+  },
+  "parametric-var-portfolio": {
+    description: "Excel XXXI sayfasındaki dört pozisyonlu portföy için ağırlıklar, kovaryans matrisi, portföy sigması ve VaR hesaplar.",
+    formula: ["w_i = PV_i / ΣPV", "σ_Portföy = SQRT(w'Σw)", "VaR(1 Gün) = σ_Portföy x PV x ALFA", "VaR(10 Gün) = VaR(1 Gün) x SQRT(10)"],
+    variables: variables("Σ:Risk faktörü kovaryans matrisi|w:Pozisyon ağırlıkları|σ_Portföy:Portföy günlük volatilitesi|ALFA:Normal dağılım güven katsayısı"),
+    inputs: [
+      input("values", "PV", "65000000; 50000000; 35000000; 20000000", "TL", "text"),
+      input("confidence", "Güven Aralığı", "99", "%"),
+      input("k", "k", "3"),
+      input("period", "Dönem", "Mayıs 2013 Sonrası", "", "text"),
+    ],
+    calc: (v) => {
+      const values = list(v.values);
+      const total = sum(values);
+      const weights = values.map((item) => (total === 0 ? 0 : item / total));
+      const before = [
+        [2.2807557195747338e-7, 2.2603509656337287e-7, 1.9976322665106805e-7, 1.7115012473252568e-7],
+        [2.2603509656337287e-7, 2.2957677908702365e-7, 2.0085157881145485e-7, 1.6921526383007172e-7],
+        [1.9976322665106805e-7, 2.0085157881145485e-7, 2.45446487246074e-7, 1.9848253148851607e-7],
+        [1.7115012473252568e-7, 1.6921526383007172e-7, 1.9848253148851607e-7, 2.047629529069023e-7],
+      ];
+      const after = [
+        [2.73135614389054e-6, 2.7095984773198013e-6, 2.6907165572403326e-6, 2.6284309697801196e-6],
+        [2.7095984773198013e-6, 2.7276620567036406e-6, 2.6904381309159443e-6, 2.6282598368205326e-6],
+        [2.6907165572403326e-6, 2.6904381309159443e-6, 2.7076526099665703e-6, 2.6343878484233226e-6],
+        [2.6284309697801196e-6, 2.6282598368205326e-6, 2.6343878484233226e-6, 2.6609454093879166e-6],
+      ];
+      const matrix = String(v.period).toLocaleLowerCase("tr-TR").includes("sonrası") ? after : before;
+      const sigma2 = sum(weights.map((wi, i) => sum(weights.map((wj, j) => wi * wj * matrix[i][j]))));
+      const sigma = Math.sqrt(sigma2);
+      const alpha = roundUp2(normInv(rate(v.confidence)));
+      const var1 = sigma * total * alpha;
+      return [result("σPortföy", pct(sigma)), result("PV", money(total)), result("VaR (1 Gün)", money(var1)), result("Sermaye Gereksinimi", money(cleanNumber(v.k) * var1 * Math.sqrt(10)))];
+    },
+    detail: (v) => {
+      const values = list(v.values);
+      const total = sum(values);
+      const weights = values.map((item) => (total === 0 ? 0 : item / total));
+      return table("Excel XXXI ağırlık tablosu", "Kovaryans matrisi hesapta kullanılır", ["Pozisyon", "PV", "w"], values.map((value, index) => [`Pozisyon ${index + 1}`, money(value), pct(weights[index])]));
+    },
+  },
+  "historical-simulation": {
+    description: "Excel XXXII sayfasındaki tarihsel benzetim mantığıyla tarihsel fiyat/PV değişimlerinden percentile VaR hesaplar.",
+    formula: ["Bono Fiyatı_t = Nominal / (1 + Faiz Oranı_t x VKGS / 365)", "PV_t = Bono Fiyatı_t x Bono Adeti", "K/Z_t = PV_t - PV_t-1", "VaR(1 Gün) = ABS(PERCENTILE(K/Z, 1 - Güven Aralığı))"],
+    inputs: [
+      input("nominal", "Nominal", "100000", "TL"),
+      input("days", "VKGS", "185", "gün"),
+      input("bonds", "Bono Adeti", "100"),
+      input("confidence", "GÜVEN ARALIĞI", "99", "%"),
+      input("k", "k", "3"),
+      input("pnl", "K/Z serisi", "1096.84;1106.31;-1175.44;-2188.78;-3016.56;-4877.73;791.14;1012.12;-3219.62;-2693.61;-5011.83;2066.62;-1837.04;9870.91;5994.59", "TL", "text"),
+    ],
+    calc: (v) => {
+      const pnl = list(v.pnl);
+      const var1 = Math.abs(percentileInc(pnl, 1 - rate(v.confidence)));
+      const pv = (cleanNumber(v.nominal) / (1 + 0.08220718952762017 * cleanNumber(v.days) / 365)) * cleanNumber(v.bonds);
+      const var10 = var1 * Math.sqrt(10);
+      return [result("VaR (1 Gün)", money(var1)), result("VaR / PV", pct(var1 / pv)), result("VaR (10 Gün)", money(var10)), result("Sermaye Gereksinimi", money(cleanNumber(v.k) * var10))];
+    },
+    detail: (v) => {
+      const pnl = list(v.pnl);
+      const sorted = [...pnl].sort((a, b) => a - b);
+      const var1 = Math.abs(percentileInc(pnl, 1 - rate(v.confidence)));
+      return table("Excel XXXII tarihsel benzetim", "PERCENTILE(K/Z, 1 - güven aralığı)", ["Sıra", "K/Z"], sorted.map((item, index) => [index + 1, money(item)]).concat([["VaR", money(var1)]]));
+    },
+  },
+  "macro-hedge": {
+    detail: (v) => {
+      const asset = cleanNumber(v.asset);
+      const liability = cleanNumber(v.liability);
+      const assetDuration = cleanNumber(v.assetDuration);
+      const liabilityDuration = cleanNumber(v.liabilityDuration);
+      const shock = rate(v.shock);
+      const equity = cleanNumber(v.equity);
+      const initialGap = asset === 0 ? 0 : assetDuration - liabilityDuration * (liability / asset);
+      const swapNominal = 1866.666666666669;
+      const swapAssetDuration = 0.5;
+      const swapLiabilityDuration = 2;
+      const newAsset = asset + swapNominal;
+      const newLiability = liability + swapNominal;
+      const newAssetDuration = (asset * assetDuration + swapNominal * swapAssetDuration) / newAsset;
+      const newLiabilityDuration = (liability * liabilityDuration + swapNominal * swapLiabilityDuration) / newLiability;
+      const newGap = newAssetDuration - newLiabilityDuration * (newLiability / newAsset);
+      return table("Excel XXXIII Makro Hedge", "Swap dahil bilanço durasyon gap hesabı", ["Kalem", "Başlangıç", "Swap Dahil"], [
+        ["Asset Tutar", fmtNumber(asset, 6), fmtNumber(newAsset, 6)],
+        ["Liability Tutar", fmtNumber(liability, 6), fmtNumber(newLiability, 6)],
+        ["Asset Durasyon", fmtNumber(assetDuration, 6), fmtNumber(newAssetDuration, 6)],
+        ["Liability Durasyon", fmtNumber(liabilityDuration, 6), fmtNumber(newLiabilityDuration, 6)],
+        ["Durasyon GAP", fmtNumber(initialGap, 6), fmtNumber(newGap, 6)],
+        ["Şok Sonrası Erime", pct(((-asset * assetDuration * shock) - (-liability * liabilityDuration * shock)) / equity), pct(((-newAsset * newAssetDuration * shock) - (-newLiability * newLiabilityDuration * shock)) / equity)],
+      ]);
+    },
+  },
+  bootstrap: {
+    description: "Excel XXXIV sayfasındaki yarı yıllık bootstrap adımlarıyla spot eğri üretir.",
+    formula: ["Sıfır kuponlar için Spot = İç Verim Oranı", "Spot_n = 2 x (((Kupon + 100) / (Fiyat - önceki kupon PV toplamı))^(1/(2 x Vade)) - 1)"],
+    inputs: [
+      input("maturities", "Vade", "0.5;1;1.5;2;2.5;3;3.5;4;4.5;5", "", "text"),
+      input("coupons", "Kupon", "0;0;8.5;9;11;9.5;10;10;11.5;8.75", "%", "text"),
+      input("yields", "İç Verim Oranı", "8;8.3;8.9;9.2;9.4;9.7;10;10.4;10.6;10.8", "%", "text"),
+      input("prices", "Fiyat", "96.15;92.19;99.45;99.64;103.49;99.49;100;98.72;103.16;92.24", "", "text"),
+    ],
+    calc: (v) => {
+      const maturities = list(v.maturities);
+      const coupons = smartRateList(v.coupons);
+      const yields = smartRateList(v.yields);
+      const prices = list(v.prices);
+      const spots = [];
+      maturities.forEach((maturity, index) => {
+        if ((coupons[index] || 0) === 0) {
+          spots.push(yields[index] || 0);
+          return;
+        }
+        const periods = Math.round(maturity * 2);
+        const couponPayment = (coupons[index] * 100) / 2;
+        const previousPv = sum(Array.from({ length: periods - 1 }, (_, pIndex) => couponPayment / pow(1 + spots[pIndex] / 2, pIndex + 1)));
+        const finalFlow = couponPayment + 100;
+        spots.push(2 * (pow(finalFlow / (prices[index] - previousPv), 1 / periods) - 1));
+      });
+      return [result("Son spot", pct(spots[spots.length - 1] || 0)), result("Spot sayısı", fmtNumber(spots.length, 0)), result("3Y spot", pct(spots[5] || 0))];
+    },
+    detail: (v) => {
+      const maturities = list(v.maturities);
+      const coupons = smartRateList(v.coupons);
+      const yields = smartRateList(v.yields);
+      const prices = list(v.prices);
+      const spots = [];
+      const rows = maturities.map((maturity, index) => {
+        if ((coupons[index] || 0) === 0) {
+          spots.push(yields[index] || 0);
+        } else {
+          const periods = Math.round(maturity * 2);
+          const couponPayment = (coupons[index] * 100) / 2;
+          const previousPv = sum(Array.from({ length: periods - 1 }, (_, pIndex) => couponPayment / pow(1 + spots[pIndex] / 2, pIndex + 1)));
+          const finalFlow = couponPayment + 100;
+          spots.push(2 * (pow(finalFlow / (prices[index] - previousPv), 1 / periods) - 1));
+        }
+        return [maturity, pct(coupons[index] || 0), pct(yields[index] || 0), fmtNumber(prices[index] || 0, 4), pct(spots[index] || 0)];
+      });
+      return table("Excel XXXIV bootstrap", "Spot kolonunun adım adım çözümü", ["Vade", "Kupon", "İç Verim Oranı", "Fiyat", "Spot"], rows);
+    },
+  },
+  "echols-elliott": {
+    description: "Excel XXXV sayfasındaki S23 VKGS/Yield datasına doğrusal regresyon uygular ve residual çıktısını gösterir.",
+    formula: ["Yield = Intercept + β x VKGS", "R² = 1 - SS_res / SS_total"],
+    inputs: [input("maturity", "VKGS", "1800", "gün")],
+    calc: (v) => {
+      const intercept = 0.6441150736525305;
+      const slope = 0.0002697877900613368;
+      const predicted = intercept + slope * cleanNumber(v.maturity);
+      return [result("Intercept", fmtNumber(intercept, 8)), result("X Variable 1", fmtNumber(slope, 10)), result("Tahmini Yield", `${fmtNumber(predicted, 6)}%`), result("R Square", fmtNumber(0.713724368387229, 6))];
+    },
+    detail: () => {
+      const days = [1, 2, 7, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360, 720, 1080, 1440, 1800, 2160, 2520, 2880, 3240, 3600, 3960, 4320, 5400, 7200, 9000, 10800, 14400, 18000];
+      const yields = [0.1033, 0.22, 0.13015, 0.164, 0.205, 0.2366, 0.2193, 0.2275, 0.2435, 0.2365, 0.2398, 0.2555, 0.2513, 0.2571, 0.268, 0.3798, 0.6445, 1.027, 1.4415, 1.8203, 2.1405, 2.3975, 2.6093, 2.7865, 2.9377, 3.0612, 3.3273, 3.549, 3.656, 3.7165, 3.7358, 3.7185];
+      const intercept = 0.6441150736525305;
+      const slope = 0.0002697877900613368;
+      const rows = days.map((day, index) => [index + 1, day, `${fmtNumber(yields[index], 6)}%`, `${fmtNumber(intercept + slope * day, 6)}%`, `${fmtNumber(yields[index] - (intercept + slope * day), 6)}%`]);
+      return table("Excel XXXV Echols-Elliot regression", "SUMMARY OUTPUT ve residual mantığı", ["Obs", "VKGS", "Yield", "Predicted Y", "Residual"], rows);
+    },
+  },
+  "black-scholes": {
+    inputs: [
+      input("spot", "Spot Price (S)", "90"),
+      input("strike", "Strike Price (K)", "110"),
+      input("rate", "Risk Free Rate (r)", "5", "%"),
+      input("time", "Time to Maturity (T)", "0.15", "yıl"),
+      input("vol", "Actual Volatility (σ)", "18", "%"),
+      input("optionType", "Option Type (Call or Put)", "Put", "", "text"),
+    ],
+    calc: (v) => {
+      const option = bsPrice(cleanNumber(v.spot), cleanNumber(v.strike), rate(v.rate), cleanNumber(v.time), rate(v.vol), v.optionType);
+      return [result("Black-Scholes Call Price", money(option.call)), result("Black-Scholes Put Price", money(option.put)), result("Seçili opsiyon fiyatı", money(option.price))];
+    },
+    detail: (v) => {
+      const option = bsPrice(cleanNumber(v.spot), cleanNumber(v.strike), rate(v.rate), cleanNumber(v.time), rate(v.vol), v.optionType);
+      return table("Excel XXXVI Black Scholes", "VBA bs_price fonksiyonunun JS karşılığı", ["Kalem", "Değer"], [
+        ["Spot Price (S)", fmtNumber(cleanNumber(v.spot), 6)],
+        ["Strike Price (K)", fmtNumber(cleanNumber(v.strike), 6)],
+        ["Risk Free Rate (r)", pct(rate(v.rate))],
+        ["Time to Maturity (T)", fmtNumber(cleanNumber(v.time), 6)],
+        ["Actual Volatility (σ)", pct(rate(v.vol))],
+        ["Option Type", v.optionType],
+        ["d1", fmtNumber(option.d1, 8)],
+        ["d2", fmtNumber(option.d2, 8)],
+        ["Call Price", money(option.call)],
+        ["Put Price", money(option.put)],
+      ]);
+    },
+  },
+});
+
+modules.forEach((module) => {
+  Object.assign(module, moduleOverrides[module.id] || {});
+  if (!module.detail) {
+    module.detail = (values) => table("Excel hesap özeti", "Nihai sonuç hücreleri", ["Sonuç", "Değer"], module.calc(values).map((item) => [item.label, item.value]));
+  }
+});
+
 const byId = (id) => modules.find((item) => item.id === id) || modules[0];
 const current = () => byId(state.activeId);
 
@@ -761,6 +2007,8 @@ const renderInputs = (module, values) => {
 };
 
 const renderResultsOnly = () => {
+  const module = current();
+  const values = currentValues(module);
   const results = activeResults();
   const resultWrap = document.getElementById("result-stack");
   resultWrap.innerHTML = "";
@@ -770,6 +2018,27 @@ const renderResultsOnly = () => {
     card.innerHTML = `<span>${item.label}</span><strong>${item.value}</strong>`;
     resultWrap.appendChild(card);
   });
+  renderDetail(module, values);
+};
+
+const renderDetail = (module, values) => {
+  const panel = document.getElementById("detail-panel");
+  const detail = typeof module.detail === "function" ? module.detail(values) : null;
+  if (!detail || !detail.columns?.length || !detail.rows?.length) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  document.getElementById("detail-title").textContent = detail.title || "Excel hesap tablosu";
+  document.getElementById("detail-note").textContent = detail.note || "";
+
+  const tableEl = document.getElementById("detail-table");
+  const head = `<thead><tr>${detail.columns.map((column) => `<th>${column}</th>`).join("")}</tr></thead>`;
+  const body = `<tbody>${detail.rows
+    .map((row) => `<tr>${row.map((cell) => `<td>${cell ?? ""}</td>`).join("")}</tr>`)
+    .join("")}</tbody>`;
+  tableEl.innerHTML = head + body;
 };
 
 const renderFormula = (module) => {
