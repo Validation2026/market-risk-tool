@@ -28,6 +28,80 @@ const list = (value) =>
     .map(cleanNumber)
     .filter((item) => Number.isFinite(item));
 
+const notationMap = {
+  "P": "Başlangıç Anaparası / Nominal",
+  "r": "Yıllık/Dönemsel Faiz Oranı",
+  "t": "Vade (Yıl)",
+  "m": "Bileşikleme/Yenileme Sıklığı",
+  "FV": "Gelecek Değer",
+  "PV": "Bugünkü Değer",
+  "c": "Dönemsel Ödeme / Taksit",
+  "T": "Vade veya Dönem Sayısı",
+  "n": "Dönem/Taksit Sayısı",
+  "S": "Spot Fiyat",
+  "K": "Kullanım (Strike) Fiyatı",
+  "σ": "Volatilite",
+  "y": "Getiri Oranı (Yield)",
+  "z": "Discount Margin (Spread)",
+  "k": "Sermaye Çarpanı",
+  "τ": "Yıl Fraksiyonu",
+  "r Aylık": "Aylık Faiz Oranı",
+  "r1": "Kısa Spot Faiz Oranı",
+  "r2": "Uzun Spot Faiz Oranı",
+  "r2 iskonto": "İskonto Oranı",
+  "Discount Margin (z)": "Discount Margin (İskonto Marjı)",
+  "LIBOR T1": "T1 LIBOR Oranı",
+  "LIBOR T2": "T2 LIBOR Oranı",
+  "VKGS": "Vadeye Kalan Gün Sayısı",
+  "DCB": "Gün Sayım Esası (Day Count Basis)",
+  "YTM": "Vadeye Kadar Getiri (Year to Maturity)",
+  "vol": "Volatilite",
+  "increment": "Faiz Değişim Adımı",
+  "shock": "Faiz Şok Oranı",
+  "spot": "Spot Fiyat (S)",
+  "strike": "Kullanım Fiyatı (K)",
+  "rate": "Faiz Oranı (r)",
+  "time": "Vade/Süre (T)",
+  "NPV": "Net Bugünkü Değer",
+  "EAR": "Efektif Yıllık Faiz Oranı",
+  "TF": "Tahakkuk Eden Faiz",
+  "CP": "Temiz Fiyat (Clean Price)",
+  "d1": "Black-Scholes d1 Katsayısı",
+  "d2": "Black-Scholes d2 Katsayısı",
+  "σPortföy": "Portföy Volatilitesi",
+  "Macaulay D": "Macaulay Durasyonu",
+  "Modifiye D": "Modifiye Durasyon",
+  "VaR (1 Gün)": "1 Günlük Riske Maruz Değer",
+  "VaR (10 Gün)": "10 Günlük Riske Maruz Değer",
+  "Sermaye Gereksinimi": "Yasal Sermaye Yükümlülüğü",
+};
+
+const getEnhancedLabel = (item, module) => {
+  let label = item.label;
+  if (module && module.variables) {
+    const matchedVar = module.variables.find(
+      (v) => v.symbol.trim().toLowerCase() === label.trim().toLowerCase()
+    );
+    if (matchedVar) {
+      return `${label} (${matchedVar.meaning.trim()})`;
+    }
+  }
+  const trimmed = label.trim();
+  if (notationMap[trimmed]) {
+    return `${label} (${notationMap[trimmed]})`;
+  }
+  for (const [key, value] of Object.entries(notationMap)) {
+    if (
+      trimmed.toLowerCase() === key.toLowerCase() ||
+      trimmed.toLowerCase().startsWith(key.toLowerCase() + " ") ||
+      trimmed.toLowerCase().endsWith(" " + key.toLowerCase())
+    ) {
+      return `${label} (${value})`;
+    }
+  }
+  return label;
+};
+
 const fmtNumber = (value, digits = 4) =>
   new Intl.NumberFormat("tr-TR", { maximumFractionDigits: digits }).format(Number.isFinite(value) ? value : 0);
 
@@ -105,13 +179,14 @@ const variables = (items) =>
     return { symbol, meaning };
   });
 
-const input = (key, label, defaultValue, suffix = "", type = "number", hint = "") => ({
+const input = (key, label, defaultValue, suffix = "", type = "number", hint = "", limit = null) => ({
   key,
   label,
   defaultValue,
   suffix,
   type,
   hint,
+  limit,
 });
 
 const result = (label, value) => ({ label, value });
@@ -864,21 +939,112 @@ const frnRows = ({ nominal, coupon, spread, days, ym, ynm, zero, period, finalNo
     return { period: index + 1, day, m, n, longTime, ym: ym[index], ynm: ynm[index], forward, interest, redemption, zero: zero[index], df, pv };
   });
 
-const fixedSwapRows = (notional, fixedRate) => {
-  const rows = [
-    { label: "Nominal", days: 35, year: 35 / 360, tau: 0, rate: 0.07403697, payment: -notional, simple: true },
-    { label: "Kupon", days: 400, year: 400 / 360, tau: 365 / 360, rate: 0.07990346, payment: notional * fixedRate * (365 / 360) },
-    { label: "Efektif", days: 765, year: 765 / 360, tau: 365 / 360, rate: 0.08516347, payment: notional + notional * fixedRate * (365 / 360) },
-  ];
-  return rows.map((row) => {
-    const df = row.simple ? 1 / (1 + row.days * row.rate / 360) : 1 / pow(1 + row.rate, row.year);
-    return { ...row, df, pv: row.payment * df };
+const getFRNCurves = (days) => {
+  const ymCurve = {
+    days: [50, 141, 232, 323, 414],
+    rates: [0.0772866667, 0.081566, 0.0827793333, 0.0838754444, 0.084889]
+  };
+  const ynmCurve = {
+    days: [50, 141, 232, 323, 414],
+    rates: [0.08155, 0.082768, 0.0838628889, 0.0848788333, 0.085804]
+  };
+  const zeroCurve = {
+    days: [50, 141, 232, 323, 414],
+    rates: [0.0859333333, 0.08563, 0.0865111111, 0.0882805556, 0.089075]
+  };
+
+  const ym = days.map(d => linearInterpolate(d, ymCurve.days, ymCurve.rates));
+  const ynm = days.map(d => linearInterpolate(d, ynmCurve.days, ynmCurve.rates));
+  const zero = days.map(d => linearInterpolate(d, zeroCurve.days, zeroCurve.rates));
+
+  return { ym, ynm, zero };
+};
+
+const getCorpFRNCurves = (days) => {
+  const ymCurve = {
+    days: [12, 43, 74, 105, 136, 167, 198, 229, 260, 291, 322, 353, 384, 415],
+    rates: [0.0538533333, 0.0596744444, 0.0654955556, 0.0713166667, 0.0771377778, 0.0829588889, 0.08521, 0.0848827778, 0.0845555556, 0.0842283333, 0.0839011111, 0.0835738889, 0.0836666667, 0.0838819444]
+  };
+  const ynmCurve = {
+    days: [12, 43, 74, 105, 136, 167, 198, 229, 260, 291, 322, 353, 384, 415],
+    rates: [0.0859266667, 0.0857372222, 0.0855477778, 0.0853583333, 0.0851688889, 0.0849794444, 0.08479, 0.0846005556, 0.0844111111, 0.0842216667, 0.0840322222, 0.0838427778, 0.0841266667, 0.0845486111]
+  };
+
+  const ym = days.map(d => linearInterpolate(d, ymCurve.days, ymCurve.rates));
+  const ynm = days.map(d => linearInterpolate(d, ynmCurve.days, ynmCurve.rates));
+  const zero = days.map((day) => linearInterpolate(day / 360, [0, 1, 2], [0.08441, 0.08509, 0.08519]));
+
+  return { ym, ynm, zero };
+};
+
+const getCovarianceMatrix = (matrix, n) => {
+  const result = [];
+  for (let i = 0; i < n; i++) {
+    const row = [];
+    for (let j = 0; j < n; j++) {
+      if (i < matrix.length && j < matrix[i].length) {
+        row.push(matrix[i][j]);
+      } else if (i === j) {
+        row.push(matrix[matrix.length - 1][matrix.length - 1]);
+      } else {
+        const varI = i < matrix.length ? matrix[i][i] : matrix[matrix.length - 1][matrix.length - 1];
+        const varJ = j < matrix.length ? matrix[j][j] : matrix[matrix.length - 1][matrix.length - 1];
+        row.push(0.95 * Math.sqrt(varI * varJ));
+      }
+    }
+    result.push(row);
+  }
+  return result;
+};
+
+const fixedSwapRows = (notional, fixedRate, fixedDays, floatingDays, floatingRates) => {
+  const days = list(fixedDays);
+  const floatDaysList = list(floatingDays);
+  const floatRatesList = smartRateList(floatingRates);
+
+  return days.map((day, index) => {
+    const year = day / 360;
+    const isFirst = index === 0;
+    const isLast = index === days.length - 1;
+    const rateVal = linearInterpolate(day, floatDaysList, floatRatesList);
+    
+    let label = "Kupon";
+    let payment = 0;
+    let tau = 0;
+    let simple = false;
+
+    if (isFirst) {
+      label = "Nominal";
+      payment = -notional;
+      tau = 0;
+      simple = true;
+    } else {
+      tau = (day - days[index - 1]) / 360;
+      payment = notional * fixedRate * tau;
+      if (isLast) {
+        label = "Efektif";
+        payment += notional;
+      }
+    }
+
+    const df = simple ? 1 / (1 + day * rateVal / 360) : 1 / pow(1 + rateVal, year);
+    return {
+      label,
+      days: day,
+      year,
+      tau,
+      rate: rateVal,
+      payment,
+      simple,
+      df,
+      pv: payment * df
+    };
   });
 };
 
-const floatingSwapRows = (notional) => {
-  const days = [35, 125, 217, 309, 400, 490, 582, 674, 765];
-  const rates = [0.07403697, 0.07788072, 0.0788687, 0.07914228, 0.07990346, 0.08148447, 0.08302702, 0.08449573, 0.08516347];
+const floatingSwapRows = (notional, floatingDays, floatingRates) => {
+  const days = list(floatingDays);
+  const rates = smartRateList(floatingRates);
   const years = days.map((day) => day / 360);
   const dfs = days.map((day, index) => (day <= 365 ? 1 / (1 + day * rates[index] / 360) : 1 / pow(1 + rates[index], years[index])));
   return days.map((day, index) => {
@@ -911,7 +1077,7 @@ Object.assign(moduleOverrides, {
       input("principal", "Nominal", "10000000", "TL"),
       input("time", "T", "5"),
       input("rate", "r", "8.7", "%"),
-      input("compareRates", "Karşılaştırma faizleri", "5; 10; 17", "%", "text"),
+      input("compareRates", "Karşılaştırma faizleri", "5; 10; 17", "%", "text", "", 3),
     ],
     calc: (v) => {
       const principal = cleanNumber(v.principal);
@@ -922,30 +1088,29 @@ Object.assign(moduleOverrides, {
       return [result("Basit Faiz FV", money(simple)), result("Bileşik Faiz FV", money(compound)), result("Fark", money(compound - simple))];
     },
     detail: (v) => {
-      const periods = Math.max(1, Math.min(30, Math.round(cleanNumber(v.time) || 5) * 4));
-      const rates = smartRateList(v.compareRates).slice(0, 3);
-      while (rates.length < 3) rates.push([0.05, 0.1, 0.17][rates.length]);
+      const principal = cleanNumber(v.principal) || 100;
+      const periods = Math.max(1, Math.min(100, Math.round(cleanNumber(v.time) || 5)));
+      const rates = smartRateList(v.compareRates);
+      
+      if (rates.length === 0) rates.push(0.05);
+
+      const columns = ["Periyot"];
+      rates.forEach((rateVal) => {
+        columns.push(`${plainPct(rateVal, 2)}% Basit`);
+        columns.push(`${plainPct(rateVal, 2)}% Bileşik`);
+      });
+
       const rows = Array.from({ length: periods }, (_, index) => {
         const p = index + 1;
-        return [
-          p,
-          fmtNumber(100 * (1 + p * rates[0]), 4),
-          fmtNumber(100 * pow(1 + rates[0], p), 4),
-          fmtNumber(100 * (1 + p * rates[1]), 4),
-          fmtNumber(100 * pow(1 + rates[1], p), 4),
-          fmtNumber(100 * (1 + p * rates[2]), 4),
-          fmtNumber(100 * pow(1 + rates[2], p), 4),
-        ];
+        const row = [p];
+        rates.forEach((rateVal) => {
+          row.push(money(principal * (1 + p * rateVal)));
+          row.push(money(principal * pow(1 + rateVal, p)));
+        });
+        return row;
       });
-      return table("Karşılaştırma tablosu", "Baz değer 100", [
-        "Periyot",
-        `${plainPct(rates[0], 2)} Basit`,
-        `${plainPct(rates[0], 2)} Bileşik`,
-        `${plainPct(rates[1], 2)} Basit`,
-        `${plainPct(rates[1], 2)} Bileşik`,
-        `${plainPct(rates[2], 2)} Basit`,
-        `${plainPct(rates[2], 2)} Bileşik`,
-      ], rows);
+
+      return table("Karşılaştırma tablosu", `Nominal değer: ${money(principal)}`, columns, rows);
     },
   },
   "compounding-frequency": {
@@ -975,9 +1140,18 @@ Object.assign(moduleOverrides, {
       const principal = cleanNumber(v.principal);
       const t = cleanNumber(v.time);
       const r = rate(v.rate);
+      const selected = Math.max(1, cleanNumber(v.frequency));
       const frequencies = [...Array.from({ length: 24 }, (_, index) => index + 1), 36, 52, 72];
-      const rows = frequencies.map((m) => [m, money(principal * pow(1 + r / m, m * t)), money(principal * Math.exp(r * t))]);
-      return table("Yenileme frekansı", "Sürekli faiz limitiyle karşılaştırma", ["Yenileme Frekansı", "FV", "FV Sürekli"], rows);
+      if (!frequencies.includes(selected)) {
+        frequencies.push(selected);
+        frequencies.sort((a, b) => a - b);
+      }
+      const rows = frequencies.map((m) => {
+        const isSelected = m === selected;
+        const label = isSelected ? `${m} (Seçili)` : m;
+        return [label, money(principal * pow(1 + r / m, m * t)), money(principal * Math.exp(r * t))];
+      });
+      return table("Yenileme frekansı", "Sürekli faiz limitiyle karşılaştırma", ["Yenileme Frekansı", "FV (Bileşik Değer)", "FV Sürekli (Sürekli Bileşik Değer)"], rows);
     },
   },
   "present-value": {
@@ -1010,7 +1184,7 @@ Object.assign(moduleOverrides, {
     },
     detail: (v) => {
       const c = cleanNumber(v.cash);
-      const periods = Math.max(1, Math.min(60, Math.round(cleanNumber(v.periods))));
+      const periods = Math.max(1, Math.min(120, Math.round(cleanNumber(v.periods))));
       const r = rate(v.rate);
       const rows = Array.from({ length: periods }, (_, index) => {
         const period = index + 1;
@@ -1071,13 +1245,13 @@ Object.assign(moduleOverrides, {
       const n = Math.max(1, Math.min(360, Math.round(cleanNumber(v.periods))));
       const payment = r === 0 ? loan / n : (loan * r) / (1 - 1 / pow(1 + r, n));
       let balance = loan;
-      const rows = Array.from({ length: Math.min(n, 24) }, (_, index) => {
+      const rows = Array.from({ length: n }, (_, index) => {
         const interest = balance * r;
         const principal = payment - interest;
         balance = Math.max(0, balance - principal);
         return [index + 1, money(payment), money(interest), money(principal), money(balance)];
       });
-      return table("Amortizasyon örneği", n > 24 ? "İlk 24 ay gösterilir" : "Tüm aylar gösterilir", ["Ay", "c", "Faiz", "Anapara", "Kalan"], rows);
+      return table("Amortizasyon örneği", "Tüm aylar gösterilir", ["Ay", "c (Aylık ödeme)", "Faiz", "Anapara", "Kalan Bakiye"], rows);
     },
   },
   "level-payment-loan": {
@@ -1186,7 +1360,7 @@ Object.assign(moduleOverrides, {
     detail: (v) => {
       const principal = cleanNumber(v.principal);
       const coupon = principal * rate(v.couponRate) / 2;
-      const periods = Math.max(1, Math.min(80, Math.round(cleanNumber(v.maturity) * 2)));
+      const periods = Math.max(1, Math.min(120, Math.round(cleanNumber(v.maturity) * 2)));
       const y = rate(v.yield);
       const rows = Array.from({ length: periods }, (_, index) => {
         const period = index + 1;
@@ -1293,9 +1467,7 @@ Object.assign(moduleOverrides, {
     ],
     calc: (v) => {
       const days = list(v.days);
-      const ym = [0.0772866667, 0.081566, 0.0827793333, 0.0838754444, 0.084889];
-      const ynm = [0.08155, 0.082768, 0.0838628889, 0.0848788333, 0.085804];
-      const zero = [0.0859333333, 0.08563, 0.0865111111, 0.0882805556, 0.089075];
+      const { ym, ynm, zero } = getFRNCurves(days);
       const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face) });
       const tf = cleanNumber(v.face) * ((rate(v.coupon) + rate(v.spread)) / 4) * (41 / 91);
       const pv = sum(rows.map((row) => row.pv));
@@ -1303,9 +1475,7 @@ Object.assign(moduleOverrides, {
     },
     detail: (v) => {
       const days = list(v.days);
-      const ym = [0.0772866667, 0.081566, 0.0827793333, 0.0838754444, 0.084889];
-      const ynm = [0.08155, 0.082768, 0.0838628889, 0.0848788333, 0.085804];
-      const zero = [0.0859333333, 0.08563, 0.0865111111, 0.0882805556, 0.089075];
+      const { ym, ynm, zero } = getFRNCurves(days);
       const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face) }).map((row) => [
         row.period,
         row.day,
@@ -1321,7 +1491,7 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      return table("Değişken faizli bono", "Forward m,n + spread ile kupon tahmini", ["#", "VKGS", "m", "n", "n+m", "ym", "yn+m", "Forward m,n", "Faiz", "Nominal", "zero r", "DF", "PV"], rows);
+      return table("Değişken faizli bono", "Forward m,n + spread ile kupon tahmini", ["#", "VKGS", "m (Kupon vadesi yıl)", "n (Kupon dönemi yıl)", "n+m (Toplam vade)", "ym (Kısa spot faiz)", "yn+m (Uzun spot faiz)", "Forward m,n (İma edilen faiz)", "Faiz", "Nominal", "zero r (İskonto faizi)", "DF (İskonto faktörü)", "PV (Bugünkü değer)"], rows);
     },
   },
   spread: {
@@ -1374,22 +1544,19 @@ Object.assign(moduleOverrides, {
       input("spread", "Spread", "1.1", "%"),
       input("discountMargin", "Discount Margin (z)", "1.2155301486", "%"),
       input("period", "n", "2", "yıl"),
+      input("days", "VKGS listesi", "12; 43; 74; 105; 136; 167; 198; 229; 260; 291; 322; 353; 384; 415", "gün", "text"),
     ],
     calc: (v) => {
-      const days = [12, 43, 74, 105, 136, 167, 198, 229, 260, 291, 322, 353, 384, 415];
-      const ym = [0.0538533333, 0.0596744444, 0.0654955556, 0.0713166667, 0.0771377778, 0.0829588889, 0.08521, 0.0848827778, 0.0845555556, 0.0842283333, 0.0839011111, 0.0835738889, 0.0836666667, 0.0838819444];
-      const ynm = [0.0859266667, 0.0857372222, 0.0855477778, 0.0853583333, 0.0851688889, 0.0849794444, 0.08479, 0.0846005556, 0.0844111111, 0.0842216667, 0.0840322222, 0.0838427778, 0.0841266667, 0.0845486111];
-      const zero = days.map((day) => linearInterpolate(day / 360, [0, 1, 2], [0.08441, 0.08509, 0.08519]));
+      const days = list(v.days);
+      const { ym, ynm, zero } = getCorpFRNCurves(days);
       const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face), discountSpread: rate(v.discountMargin) });
       const pv = sum(rows.map((row) => row.pv));
       const tf = cleanNumber(v.face) * ((rate(v.coupon) + rate(v.spread)) / 12) * (19 / 31);
       return [result("PV", money(pv)), result("TF", money(tf)), result("CP", money(pv - tf))];
     },
     detail: (v) => {
-      const days = [12, 43, 74, 105, 136, 167, 198, 229, 260, 291, 322, 353, 384, 415];
-      const ym = [0.0538533333, 0.0596744444, 0.0654955556, 0.0713166667, 0.0771377778, 0.0829588889, 0.08521, 0.0848827778, 0.0845555556, 0.0842283333, 0.0839011111, 0.0835738889, 0.0836666667, 0.0838819444];
-      const ynm = [0.0859266667, 0.0857372222, 0.0855477778, 0.0853583333, 0.0851688889, 0.0849794444, 0.08479, 0.0846005556, 0.0844111111, 0.0842216667, 0.0840322222, 0.0838427778, 0.0841266667, 0.0845486111];
-      const zero = days.map((day) => linearInterpolate(day / 360, [0, 1, 2], [0.08441, 0.08509, 0.08519]));
+      const days = list(v.days);
+      const { ym, ynm, zero } = getCorpFRNCurves(days);
       const rows = frnRows({ nominal: cleanNumber(v.face), coupon: rate(v.coupon), spread: rate(v.spread), days, ym, ynm, zero, period: cleanNumber(v.period), finalNominal: cleanNumber(v.face), discountSpread: rate(v.discountMargin) }).map((row) => [
         row.period,
         row.day,
@@ -1402,7 +1569,7 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      return table("Şirket FRN", "z discount margin dahil", ["#", "VKGS", "m", "n", "Forward m,n", "Faiz", "Nominal", "zero r + z", "DF", "PV"], rows);
+      return table("Şirket FRN", "z discount margin dahil", ["#", "VKGS", "m (Kupon vadesi yıl)", "n (Kupon dönemi yıl)", "Forward m,n (İma edilen faiz)", "Faiz", "Nominal", "zero r + z (İskonto faizi)", "DF (İskonto faktörü)", "PV (Bugünkü değer)"], rows);
     },
   },
 });
@@ -1412,18 +1579,24 @@ Object.assign(moduleOverrides, {
     description: "Bu modüldeki sabit ödeme alıcısı ve değişken ödeme bacaklarını ayrı ayrı iskonto eder.",
     formula: ["Fiyat = PV_Sabit Bacak - PV_Değişken Bacak", "Sabit ödeme = Nominal x Kupon x τ", "Forward Rate = (1 - DF_t / DF_t-1) / ((DF_t / DF_t-1) x τ)", "PV = Ödeme x İskonto Faktörü"],
     variables: variables("τ:İki ödeme tarihi arasındaki yıl fraksiyonu|DF:İskonto faktörü|Forward Rate:Değişken bacak kupon oranı|PV:Bacak nakit akışının bugünkü değeri"),
-    inputs: [input("notional", "Nominal", "10000000", "TL"), input("fixed", "Kupon", "8.540364", "%")],
+    inputs: [
+      input("notional", "Nominal", "10000000", "TL"),
+      input("fixed", "Kupon", "8.540364", "%"),
+      input("floatingDays", "Değişken Bacak Günleri", "35; 125; 217; 309; 400; 490; 582; 674; 765", "gün", "text"),
+      input("floatingRates", "Değişken Faiz Oranları", "7.403697; 7.788072; 7.88687; 7.914228; 7.990346; 8.148447; 8.302702; 8.449573; 8.516347", "%", "text"),
+      input("fixedDays", "Sabit Bacak Günleri", "35; 400; 765", "gün", "text"),
+    ],
     calc: (v) => {
       const notional = cleanNumber(v.notional);
-      const fixed = fixedSwapRows(notional, rate(v.fixed));
-      const floating = floatingSwapRows(notional);
+      const fixed = fixedSwapRows(notional, rate(v.fixed), v.fixedDays, v.floatingDays, v.floatingRates);
+      const floating = floatingSwapRows(notional, v.floatingDays, v.floatingRates);
       const fixedPv = sum(fixed.map((row) => row.pv));
       const floatingPv = sum(floating.map((row) => row.pv));
       return [result("Sabit bacak PV", money(fixedPv)), result("Değişken bacak PV", money(floatingPv)), result("Fiyat", money(fixedPv - floatingPv))];
     },
     detail: (v) => {
       const notional = cleanNumber(v.notional);
-      const fixed = fixedSwapRows(notional, rate(v.fixed)).map((row) => [
+      const fixed = fixedSwapRows(notional, rate(v.fixed), v.fixedDays, v.floatingDays, v.floatingRates).map((row) => [
         "Sabit",
         row.label,
         row.days,
@@ -1435,7 +1608,7 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      const floating = floatingSwapRows(notional).map((row) => [
+      const floating = floatingSwapRows(notional, v.floatingDays, v.floatingRates).map((row) => [
         "Değişken",
         row.period,
         row.day,
@@ -1447,7 +1620,7 @@ Object.assign(moduleOverrides, {
         fmtNumber(row.df, 6),
         money(row.pv),
       ]);
-      return table("Swap bacakları", "Sabit ödeme alıcısı / değişken ödeme", ["Bacak", "#", "VKGS", "VKGS Yıl", "τ", "Faiz Oranı", "Forward Rate", "Ödeme", "İskonto Faktörü", "PV"], [...fixed, ...floating]);
+      return table("Swap bacakları", "Sabit ödeme alıcısı / değişken ödeme", ["Bacak", "#", "VKGS", "VKGS Yıl", "τ (Yıl fraksiyonu)", "Faiz Oranı", "Forward Rate", "Ödeme", "İskonto Faktörü", "PV (Bugünkü değer)"], [...fixed, ...floating]);
     },
   },
   "linear-interpolation": {
@@ -1761,7 +1934,8 @@ Object.assign(moduleOverrides, {
         [2.6907165572403326e-6, 2.6904381309159443e-6, 2.7076526099665703e-6, 2.6343878484233226e-6],
         [2.6284309697801196e-6, 2.6282598368205326e-6, 2.6343878484233226e-6, 2.6609454093879166e-6],
       ];
-      const matrix = String(v.period).toLocaleLowerCase("tr-TR").includes("sonrası") ? after : before;
+      const matrixBase = String(v.period).toLocaleLowerCase("tr-TR").includes("sonrası") ? after : before;
+      const matrix = getCovarianceMatrix(matrixBase, values.length);
       const sigma2 = sum(weights.map((wi, i) => sum(weights.map((wj, j) => wi * wj * matrix[i][j]))));
       const sigma = Math.sqrt(sigma2);
       const alpha = roundUp2(normInv(rate(v.confidence)));
@@ -1772,7 +1946,7 @@ Object.assign(moduleOverrides, {
       const values = list(v.values);
       const total = sum(values);
       const weights = values.map((item) => (total === 0 ? 0 : item / total));
-      return table("Ağırlık tablosu", "Kovaryans matrisi hesapta kullanılır", ["Pozisyon", "PV", "w"], values.map((value, index) => [`Pozisyon ${index + 1}`, money(value), pct(weights[index])]));
+      return table("Ağırlık tablosu", "Kovaryans matrisi hesapta kullanılır", ["Pozisyon", "PV", "w (Ağırlık)"], values.map((value, index) => [`Pozisyon ${index + 1}`, money(value), pct(weights[index])]));
     },
   },
   "historical-simulation": {
@@ -1988,25 +2162,32 @@ const renderModuleList = () => {
     wrap.appendChild(button);
   });
 };
-
 const renderListInput = (module, item, values) => {
   const field = document.createElement("div");
   field.className = "field wide list-field";
 
   const title = document.createElement("span");
-  title.innerHTML = `${item.label}${item.suffix ? `<em>${item.suffix}</em>` : ""}`;
+  title.innerHTML = `${getEnhancedLabel(item, module)}${item.suffix ? `<em>${item.suffix}</em>` : ""}`;
   field.appendChild(title);
 
   const editor = document.createElement("div");
   editor.className = "list-editor";
   const entries = [];
+  let addButton;
 
   const refreshIndexes = () => {
     entries.forEach((entry, index) => {
       entry.index.textContent = index + 1;
-      entry.input.setAttribute("aria-label", `${item.label} ${index + 1}`);
+      entry.input.setAttribute("aria-label", `${getEnhancedLabel(item, module)} ${index + 1}`);
       entry.remove.hidden = entries.length <= 1;
     });
+    if (item.limit && addButton) {
+      if (entries.length >= item.limit) {
+        addButton.style.display = "none";
+      } else {
+        addButton.style.display = "inline-block";
+      }
+    }
   };
 
   const syncList = () => {
@@ -2029,7 +2210,9 @@ const renderListInput = (module, item, values) => {
     inputEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
-        addRow("", true);
+        if (!item.limit || entries.length < item.limit) {
+          addRow("", true);
+        }
       }
     });
 
@@ -2056,14 +2239,18 @@ const renderListInput = (module, item, values) => {
     return inputEl;
   };
 
-  const initialItems = splitListItems(values[item.key]);
-  (initialItems.length ? initialItems : [""]).forEach((value) => addRow(value));
-
-  const addButton = document.createElement("button");
+  addButton = document.createElement("button");
   addButton.type = "button";
   addButton.className = "list-add";
   addButton.textContent = "Değer ekle";
-  addButton.addEventListener("click", () => addRow("", true));
+  addButton.addEventListener("click", () => {
+    if (!item.limit || entries.length < item.limit) {
+      addRow("", true);
+    }
+  });
+
+  const initialItems = splitListItems(values[item.key]);
+  (initialItems.length ? initialItems : [""]).slice(0, item.limit || 1000).forEach((value) => addRow(value));
 
   field.appendChild(editor);
   field.appendChild(addButton);
@@ -2071,6 +2258,9 @@ const renderListInput = (module, item, values) => {
   const small = document.createElement("small");
   small.textContent = item.hint || "Her değeri ayrı kutuya yaz; Enter ile yeni değer ekleyebilirsin.";
   field.appendChild(small);
+
+  // Initial refresh of add button visibility after rendering initial items
+  refreshIndexes();
 
   return field;
 };
@@ -2086,7 +2276,7 @@ const renderInputs = (module, values) => {
 
     const label = document.createElement("label");
     label.className = item.type === "text" ? "field wide" : "field";
-    label.innerHTML = `<span>${item.label}${item.suffix ? `<em>${item.suffix}</em>` : ""}</span>`;
+    label.innerHTML = `<span>${getEnhancedLabel(item, module)}${item.suffix ? `<em>${item.suffix}</em>` : ""}</span>`;
 
     const control =
       item.type === "text"
@@ -2118,7 +2308,7 @@ const renderResultsOnly = () => {
   results.forEach((item) => {
     const card = document.createElement("article");
     card.className = "result-card";
-    card.innerHTML = `<span>${item.label}</span><strong>${item.value}</strong>`;
+    card.innerHTML = `<span>${getEnhancedLabel({ label: item.label }, module)}</span><strong>${item.value}</strong>`;
     resultWrap.appendChild(card);
   });
   renderDetail(module, values);
@@ -2184,6 +2374,140 @@ const render = () => {
 document.getElementById("search-input").addEventListener("input", (event) => {
   state.query = event.target.value;
   renderModuleList();
+});
+
+document.getElementById("export-excel-btn").addEventListener("click", async () => {
+  const tableEl = document.getElementById("detail-table");
+  if (!tableEl) return;
+
+  const module = current();
+  const title = module ? module.title : "Hesaplama";
+  const fileName = `${title.replace(/\s+/g, "_")}_Hesap_Tablosu.xlsx`;
+
+  // Create ExcelJS workbook
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet(title.substring(0, 31));
+
+  // Get active values
+  const values = currentValues(module);
+
+  // 1. Write Parameters Section at the top
+  const titleRow = worksheet.addRow([`${title} - Parametreler`]);
+  titleRow.getCell(1).font = { name: "Inter", family: 4, size: 12, bold: true, color: { argb: "FF0A1F44" } };
+  worksheet.mergeCells(`A${titleRow.number}:C${titleRow.number}`);
+
+  module.inputs.forEach((inputItem) => {
+    const rawVal = values[inputItem.key];
+    let valStr = String(rawVal).trim();
+    if (inputItem.suffix) {
+      valStr = `${valStr} ${inputItem.suffix}`;
+    }
+    const paramLabel = getEnhancedLabel(inputItem, module);
+    const paramRow = worksheet.addRow([paramLabel, valStr]);
+    paramRow.getCell(1).font = { name: "Inter", family: 4, size: 10, bold: true, color: { argb: "FF5D6B82" } };
+    paramRow.getCell(2).font = { name: "Inter", family: 4, size: 10, color: { argb: "FF0A1428" } };
+    paramRow.getCell(2).alignment = { horizontal: "left" };
+    worksheet.mergeCells(`B${paramRow.number}:C${paramRow.number}`);
+  });
+
+  // Spacer rows
+  worksheet.addRow([]);
+  const tableTitleRow = worksheet.addRow(["Hesaplama Detayları ve Tablosu"]);
+  tableTitleRow.getCell(1).font = { name: "Inter", family: 4, size: 12, bold: true, color: { argb: "FF0A1F44" } };
+  worksheet.mergeCells(`A${tableTitleRow.number}:C${tableTitleRow.number}`);
+  worksheet.addRow([]);
+
+  // 2. Parse HTML table and write rows
+  const rows = Array.from(tableEl.querySelectorAll("tr"));
+  
+  rows.forEach((tr, rowIndex) => {
+    const isHeader = tr.parentElement.tagName.toLowerCase() === "thead" || rowIndex === 0;
+    const cells = Array.from(tr.querySelectorAll("th, td"));
+    const rowValues = cells.map(cell => {
+      const val = cell.textContent.trim();
+      const cleaned = val.replace(/\./g, "").replace(",", ".").replace("TL", "").replace("%", "").replace(/\s/g, "");
+      if (val && !isNaN(cleaned)) {
+        let num = Number(cleaned);
+        if (val.includes("%")) num = num / 100;
+        return num;
+      }
+      return val;
+    });
+
+    const excelRow = worksheet.addRow(rowValues);
+
+    // Apply styles to table cells
+    cells.forEach((cell, colIndex) => {
+      const excelCell = excelRow.getCell(colIndex + 1);
+      const originalText = cell.textContent.trim();
+      
+      // Formatting styles
+      if (originalText.includes("%")) {
+        excelCell.numFmt = "0.00%";
+      } else if (originalText.includes("TL")) {
+        excelCell.numFmt = '#,##0.00" TL"';
+      } else if (originalText && !isNaN(originalText.replace(/\./g, "").replace(",", "."))) {
+        excelCell.numFmt = '#,##0.00';
+      }
+
+      // Font and alignment styles
+      if (isHeader) {
+        excelCell.font = { name: "Inter", family: 4, size: 10, bold: true, color: { argb: "FFFFFFFF" } };
+        excelCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF0A1F44" } // var(--navy)
+        };
+        excelCell.alignment = { horizontal: "center", vertical: "middle" };
+      } else {
+        excelCell.font = { name: "Inter", family: 4, size: 10, color: { argb: "FF0A1428" } };
+        const isEven = rowIndex % 2 === 0;
+        excelCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: isEven ? "FFEEF6FF" : "FFF8FBFF" }
+        };
+        excelCell.alignment = { horizontal: isNaN(originalText.replace(/\./g, "").replace(",", ".")) ? "left" : "right", vertical: "middle" };
+      }
+
+      // Thin borders
+      excelCell.border = {
+        top: { style: "thin", color: { argb: "FFE2E8F0" } },
+        left: { style: "thin", color: { argb: "FFE2E8F0" } },
+        bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+        right: { style: "thin", color: { argb: "FFE2E8F0" } }
+      };
+    });
+  });
+
+  // Auto-fit columns based on length of contents
+  worksheet.columns.forEach(column => {
+    let maxLength = 0;
+    column.eachCell({ includeEmpty: true }, cell => {
+      let cellLength = 10;
+      if (cell.value) {
+        const text = String(cell.value);
+        cellLength = text.length;
+        if (text.includes("TL") || text.includes("%")) cellLength += 3;
+      }
+      if (cellLength > maxLength) {
+        maxLength = cellLength;
+      }
+    });
+    column.width = Math.max(12, Math.min(30, maxLength + 4));
+  });
+
+  // Write and download
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", fileName);
+  link.style.visibility = "hidden";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 });
 
 render();

@@ -203,6 +203,8 @@ a {
 }
 
 .module-browser {
+  display: flex;
+  flex-direction: column;
   position: sticky;
   top: 24px;
   max-height: calc(100vh - 48px);
@@ -221,10 +223,15 @@ a {
   font-size: 1.45rem;
 }
 
+.browser-header {
+  flex-shrink: 0;
+}
+
 .search-box {
   display: grid;
   gap: 8px;
   margin-top: 16px;
+  flex-shrink: 0;
 }
 
 .search-box span,
@@ -264,6 +271,7 @@ a {
   overflow-x: auto;
   margin: 16px -2px 0;
   padding: 2px 2px 8px;
+  flex-shrink: 0;
 }
 
 .pill {
@@ -286,10 +294,10 @@ a {
 .module-list {
   display: grid;
   gap: 10px;
-  max-height: calc(100vh - 260px);
-  overflow: auto;
+  flex: 1;
+  overflow-y: auto;
   margin: 10px -6px 0 0;
-  padding-right: 6px;
+  padding: 0 6px 12px 0;
 }
 
 .module-item {
@@ -383,6 +391,11 @@ a {
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.72);
   padding: 18px;
+}
+
+.formula-card {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .input-panel h3,
@@ -819,4 +832,29 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+.export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(37, 99, 235, 0.24);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  padding: 6px 16px;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.export-btn:hover {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  transform: translateY(-1px);
+}
+
+.export-btn:active {
+  transform: translateY(0);
 }
