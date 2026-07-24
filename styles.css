@@ -243,6 +243,7 @@ a {
 
 .search-box input,
 .field input,
+.field select,
 .field textarea {
   width: 100%;
   border: 1px solid rgba(10, 31, 68, 0.12);
@@ -254,12 +255,25 @@ a {
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.field select {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%235d6b82' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 20px;
+  padding-right: 40px;
+}
+
 .field textarea {
   resize: vertical;
 }
 
 .search-box input:focus,
 .field input:focus,
+.field select:focus,
 .field textarea:focus {
   border-color: rgba(37, 99, 235, 0.62);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);

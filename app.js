@@ -179,7 +179,7 @@ const variables = (items) =>
     return { symbol, meaning };
   });
 
-const input = (key, label, defaultValue, suffix = "", type = "number", hint = "", limit = null) => ({
+const input = (key, label, defaultValue, suffix = "", type = "number", hint = "", limit = null, options = null) => ({
   key,
   label,
   defaultValue,
@@ -187,6 +187,7 @@ const input = (key, label, defaultValue, suffix = "", type = "number", hint = ""
   type,
   hint,
   limit,
+  options,
 });
 
 const result = (label, value) => ({ label, value });
@@ -1916,7 +1917,7 @@ Object.assign(moduleOverrides, {
       input("values", "PV", "65000000; 50000000; 35000000; 20000000", "TL", "text"),
       input("confidence", "Güven Aralığı", "99", "%"),
       input("k", "k", "3"),
-      input("period", "Dönem", "Mayıs 2013 Sonrası", "", "text"),
+      input("period", "Dönem", "Mayıs 2013 Sonrası", "", "select", "", null, ["Mayıs 2013 Öncesi", "Mayıs 2013 Sonrası"]),
     ],
     calc: (v) => {
       const values = list(v.values);
@@ -1925,13 +1926,13 @@ Object.assign(moduleOverrides, {
       const before = [
         [2.2807557195747338e-7, 2.2603509656337287e-7, 1.9976322665106805e-7, 1.7115012473252568e-7],
         [2.2603509656337287e-7, 2.2957677908702365e-7, 2.0085157881145485e-7, 1.6921526383007172e-7],
-        [1.9976322665106805e-7, 2.0085157881145485e-7, 2.45446487246074e-7, 1.9848253148851607e-7],
+        [2.2957677908702365e-7, 2.0085157881145485e-7, 2.45446487246074e-7, 1.9848253148851607e-7],
         [1.7115012473252568e-7, 1.6921526383007172e-7, 1.9848253148851607e-7, 2.047629529069023e-7],
       ];
       const after = [
         [2.73135614389054e-6, 2.7095984773198013e-6, 2.6907165572403326e-6, 2.6284309697801196e-6],
         [2.7095984773198013e-6, 2.7276620567036406e-6, 2.6904381309159443e-6, 2.6282598368205326e-6],
-        [2.6907165572403326e-6, 2.6904381309159443e-6, 2.7076526099665703e-6, 2.6343878484233226e-6],
+        [2.7276620567036406e-6, 2.6904381309159443e-6, 2.7076526099665703e-6, 2.6343878484233226e-6],
         [2.6284309697801196e-6, 2.6282598368205326e-6, 2.6343878484233226e-6, 2.6609454093879166e-6],
       ];
       const matrixBase = String(v.period).toLocaleLowerCase("tr-TR").includes("sonrası") ? after : before;
@@ -2076,7 +2077,7 @@ Object.assign(moduleOverrides, {
       input("rate", "Risk Free Rate (r)", "5", "%"),
       input("time", "Time to Maturity (T)", "0.15", "yıl"),
       input("vol", "Actual Volatility (σ)", "18", "%"),
-      input("optionType", "Option Type (Call or Put)", "Put", "", "text"),
+      input("optionType", "Option Type (Call or Put)", "Put", "", "select", "", null, ["Put", "Call"]),
     ],
     calc: (v) => {
       const option = bsPrice(cleanNumber(v.spot), cleanNumber(v.strike), rate(v.rate), cleanNumber(v.time), rate(v.vol), v.optionType);
@@ -2206,7 +2207,13 @@ const renderListInput = (module, item, values) => {
     inputEl.type = "text";
     inputEl.inputMode = "decimal";
     inputEl.value = value;
-    inputEl.addEventListener("input", syncList);
+    inputEl.addEventListener("input", (event) => {
+      const clean = event.target.value.replace(/[^0-9.,\-%\s]/g, "");
+      if (clean !== event.target.value) {
+        event.target.value = clean;
+      }
+      syncList();
+    });
     inputEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         event.preventDefault();
@@ -2278,13 +2285,32 @@ const renderInputs = (module, values) => {
     label.className = item.type === "text" ? "field wide" : "field";
     label.innerHTML = `<span>${getEnhancedLabel(item, module)}${item.suffix ? `<em>${item.suffix}</em>` : ""}</span>`;
 
-    const control =
-      item.type === "text"
-        ? Object.assign(document.createElement("input"), { type: "text" })
-        : Object.assign(document.createElement("input"), { inputMode: "decimal" });
+    let control;
+    if (item.type === "select") {
+      control = document.createElement("select");
+      const opts = item.options || [];
+      opts.forEach((opt) => {
+        const optionEl = document.createElement("option");
+        optionEl.value = opt;
+        optionEl.textContent = opt;
+        control.appendChild(optionEl);
+      });
+      control.value = values[item.key];
+    } else {
+      control =
+        item.type === "text"
+          ? Object.assign(document.createElement("input"), { type: "text" })
+          : Object.assign(document.createElement("input"), { inputMode: "decimal" });
+      control.value = values[item.key];
+    }
 
-    control.value = values[item.key];
-    control.addEventListener("input", (event) => {
+    control.addEventListener(item.type === "select" ? "change" : "input", (event) => {
+      if (item.type !== "text" && item.type !== "select") {
+        const clean = event.target.value.replace(/[^0-9.,\-%\s]/g, "");
+        if (clean !== event.target.value) {
+          event.target.value = clean;
+        }
+      }
       setDraftValue(module, item.key, event.target.value);
       renderResultsOnly();
     });
